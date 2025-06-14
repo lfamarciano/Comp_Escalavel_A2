@@ -1,4 +1,7 @@
 # Trabalho A2 de Computação Escalável 
+## Objetivo
+Criar um pipeline escalável para processamento de dados utilizando os mecanismos apresentados na disciplina.
+
 ## Fontes de dados
 - transacoes_vendas -> tv
 	- id_transacao: UUID (identificador único da transação)
