@@ -58,11 +58,11 @@ def gerar_transacoes_vendas(produto, usuario, n=10):
     return transacoes
         
 
-def gerar_eventos_web(produto, usuario, n=100):
+def gerar_eventos_web(produto, usuario, ids_carrinhos = False, n=100):
+    
     tipos = [
-        "visualizacao_produto", "adicionar_carrinho", "remover_carrinho",
+        "adicionar_carrinho", "remover_carrinho",
         "carrinho_criado", "checkout_iniciado", "checkout_concluido",
-        "pesquisa", "login"
     ]
     eventos = []
     for _ in range(n):
