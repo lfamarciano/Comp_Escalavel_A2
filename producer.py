@@ -114,7 +114,7 @@ def simular_atividade_cliente(usuario, todos_produtos, bprint=False):
             transacao = {
                 "id_transacao": str(uuid.uuid4()), "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
                 "nome_usuario": usuario["nome_usuario"], "id_produto": prod["id_produto"], "categoria_produto": prod["categoria_produto"],
-                "item": prod["nome_produto"], "valor_total_compra": prod["preco_unitario"],
+                "item": prod["nome_produto"], "valor_total_compra": prod["preco_unitario"], "quantidade_produto":random.randint(1, 3),
                 "data_compra": evento_checkout["timestamp_evento"],
                 "metodo_pagamento": random.choice(["cartao_credito", "boleto", "pix"]),
                 "status_pedido": "processando", "id_carrinho": id_carrinho
