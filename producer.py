@@ -1,6 +1,7 @@
 import uuid
 import random
 import json
+from decimal import Decimal
 import time
 from faker import Faker
 from faker_commerce import Provider
@@ -16,13 +17,17 @@ KAFKA_BROKER_URL = 'localhost:9092' # URL do broker Kafka
 TRANSACTIONS_TOPIC = 'transacoes_vendas'
 WEB_EVENTS_TOPIC = 'eventos_web'
 
-# Serializador JSON para enviar os dicionários como bytes
-def json_serializer(data):
-    return json.dumps(data).encode('utf-8')
+# Classe para ensinar a biblioteca JSON a converter o tipo Decimal
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            # Converte Decimal para float, que é um tipo que o JSON entende
+            return float(obj)
+        return super(CustomJSONEncoder, self).default(obj)
 
 producer = KafkaProducer(
     bootstrap_servers=[KAFKA_BROKER_URL],
-    value_serializer=json_serializer
+    value_serializer=lambda v: json.dumps(v, cls=CustomJSONEncoder).encode('utf-8')
 )
 
 # Config bd
@@ -174,7 +179,7 @@ def simular_atividade_cliente(usuario, todos_produtos, bprint=False):
         for prod in produtos:
             transacao = {
                 "id_transacao": str(uuid.uuid4()), "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
-                "nome_usuario": usuario["nome_usuario"], "id_produto": prod["id_produto"], "categoria_produto": prod["categoria_produto"],
+                "nome_usuario": usuario["nome_usuario"], "id_produto": prod["id_produto"], "categoria": prod["categoria"],
                 "item": prod["nome_produto"], "valor_total_compra": prod["preco_unitario"], "quantidade_produto":random.randint(1, 3),
                 "data_compra": evento_checkout["timestamp_evento"],
                 "metodo_pagamento": random.choice(["cartao_credito", "boleto", "pix"]),
@@ -186,7 +191,7 @@ def simular_atividade_cliente(usuario, todos_produtos, bprint=False):
         print("[FIM DA JORNADA] Usuário ABANDONOU o carrinho.") if bprint else None
 
 # Loop principal para enviar dados ao Kafka
-def main_producer_loop(time_sleep=5):
+def main_producer_loop(time_sleep=5, bprint=False):
     produtos = fetch_produtos_from_db()
     usuarios = fetch_usuarios_from_db()
 
@@ -200,7 +205,7 @@ def main_producer_loop(time_sleep=5):
             usuario_selecionado = random.choice(usuarios)
             
             # A função agora recebe a lista completa de produtos
-            simular_atividade_cliente(usuario_selecionado, produtos)
+            simular_atividade_cliente(usuario_selecionado, produtos,bprint=bprint)
             
             producer.flush() 
             
@@ -214,4 +219,4 @@ def main_producer_loop(time_sleep=5):
             time.sleep(time_sleep)
             
 if __name__ == "__main__":
-    main_producer_loop()
+    main_producer_loop(bprint=True)

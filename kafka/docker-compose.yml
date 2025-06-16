@@ -1,0 +1,69 @@
+# ANTES DE EXECUTAR ESTE ARQUIVO, CERTIFIQUE-SE DE QUE O DOCKER DESCKTOP ESTÁ INSTALADO
+# RODE O SEGUINTE COMANDO NO TERMINAL PARA CRIAR E INICIAR OS CONTEINERES
+# > docker-compose up
+# PARA VERIFICAR SE OS CONTEINERES ESTÃO RODANDO, USE O COMANDO:
+# > docker ps
+# JÁ PODE RODAR O producer.py
+# ACESSE http://localhost:9000 PARA VER A INTEFACE DO Kafdrop
+# PARA PARAR OS CONTEINERES, USE O COMANDO:
+# > docker-compose down
+
+version: '3.8'
+
+# Definindo as redes para os serviços se comunicarem
+networks:
+  kafka-net:
+    driver: bridge
+
+services:
+  # Serviço 1: Zookeeper - Gerenciador de cluster do Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    hostname: zookeeper
+    container_name: zookeeper
+    networks:
+      - kafka-net
+    ports:
+      - "2181:2181" # Porta para o Zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # Serviço 2: Kafka Broker - O servidor principal de mensagens
+  kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    hostname: kafka
+    container_name: kafka
+    networks:
+      - kafka-net
+    ports:
+      # Mapeia a porta 9092 do seu PC para a porta 9092 do container
+      # É aqui que seu producer.py irá se conectar
+      - "9092:9092" 
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      # Endereço que o Kafka "anuncia" para produtores externos (como seu script Python)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  # Serviço 3: Kafdrop - Interface Web para visualizar os tópicos e mensagens
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    hostname: kafdrop
+    container_name: kafdrop
+    networks:
+      - kafka-net
+    ports:
+      # Acesse a interface no seu navegador em http://localhost:9000
+      - "9000:9000"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:29092"
+
