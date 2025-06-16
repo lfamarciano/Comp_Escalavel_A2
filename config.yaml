@@ -1,0 +1,15 @@
+# 2_data_platform/config.yaml
+
+kafka:
+  bootstrap_servers: "localhost:9092"
+  transactions_topic: "transacoes_vendas"
+  web_events_topic: "eventos_web"
+
+delta_paths:
+  base: "data" # O Spark criará esta pasta se não existir
+  bronze_transactions: "data/bronze/transactions"
+  bronze_events: "data/bronze/web_events"
+  
+spark_checkpoints:
+  bronze_transactions: "data/_checkpoints/bronze_transactions"
+  bronze_events: "data/_checkpoints/bronze_events"
