@@ -1,5 +1,7 @@
 # ANTES DE EXECUTAR O CONSUMIDOR, CERTIFIQUE-SE DE QUE O KAFKA ESTÁ RODANDO E OS TÓPICOS 'transacoes_vendas' E 'eventos_web' ESTÃO CRIADOS.
 # PARA ISSO BASTA RODAR O SCRIPT 'producer.py' ANTES DESTE CONSUMIDOR.
+# PARA INICIAR O CONSUMIDOR, EXECUTE O SEGUINTE COMANDO NO TERMINAL:
+# > spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0 spark_consumer.py  
 # PARA VERIFICAR SE AS MÉTRICAS ESTÃO SENDO ATUALIZADAS NO REDIS, USE O COMANDO:
 # > docker exec -it redis redis-cli  
 # > KEYS *
