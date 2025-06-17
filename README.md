@@ -1,5 +1,18 @@
 # Configuração do ambiente de desenvolvimento
 
+## Baixando dependências python
+Nesse projeto estamos utilizando `uv` como gerenciador de dependências. O `uv` é um gerenciador de dependências altamente eficiente do python que resolve quaisquer problemas de dependência automaticamente enquanto garante uma instalação muito mais rápida do que simplesmente utilizando o `pip`
+
+1. Garanta que o pacote `uv` está instalado no seu python
+   - Rode `pip install uv`
+2. A partir daqui, o `uv` irá gerenciar nossas dependências
+3. Crie um *ambiente virtual* com `uv venv`
+4. Ative o ambiente com `.\.venv\Scripts\activate.bat` (ou activate.ps1 no PowerShell)
+5. Instale as dependências no ambiente com `uv sync`
+6. Sempre que for adicionar uma dependência, use `uv add {pacote_python}`, no lugar de `pip install {pacote_python}` 
+   - Exemplo: `uv add pandas` ao invés de `pip install pandas`
+
+
 ## GUIA PRA CONFIGURAR O SPARK NO WINDOWS
 ### Passo 1: Instalar o Java Development Kit (JDK) correto
 O Spark é uma aplicação Java e precisa do JDK para rodar. A versão do Spark que estamos usando (4.0.0) exige o Java 17.
