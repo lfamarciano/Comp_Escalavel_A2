@@ -33,10 +33,14 @@ WEB_EVENTS_TOPIC = 'eventos_web'
 # Classe para ensinar a biblioteca JSON a converter o tipo Decimal
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
+        # Se o objeto for do tipo Decimal, converte para float
         if isinstance(obj, Decimal):
-            # Converte Decimal para float, que é um tipo que o JSON entende
             return float(obj)
+        # Se o objeto for do tipo datetime, converte para string no formato ISO
+        if isinstance(obj, datetime):
+            return obj.isoformat()
         return super(CustomJSONEncoder, self).default(obj)
+
 
 # Config bd
 DB_CONFIG = {
@@ -133,7 +137,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
     print(f"-> Evento enviado: {evento_login['tipo_evento']}") if bprint else None
 
     # visualização de produtos
-    for _ in range(random.randint(1, 4)):
+    for i,_ in enumerate(range(random.randint(1, 4))):
         produto = random.choice(todos_produtos)
         evento_visualizacao = {
             "id_evento": str(uuid.uuid4()),
@@ -164,9 +168,8 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
     # time.sleep(random.uniform(0.1, 0.5)) # espera um pouco ante de adicionar 
 
     # adiciona itens ao carrinho
-    num_produtos = random.randint(1, 4)
-    produtos = random.sample(todos_produtos, num_produtos)
-    for prod in produtos: 
+    produtos_no_carrinho = random.sample(todos_produtos, random.randint(1, 4))
+    for i, prod in enumerate(produtos_no_carrinho):
         evento_add_carrinho = {
             "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "add_prod_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
@@ -178,16 +181,16 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
 
     # Decisão de Conversão (30% de chance de converter o carrinho)
     if random.random() < 0.30:
+        if bprint: print("-> Usuário decidiu CONVERTER.")
         evento_checkout = {
             "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "checkout_concluido", "id_carrinho": id_carrinho, "id_produto": None,
-            "timestamp_evento": tempo_base_jornada
+            "timestamp_evento": tempo_base_jornada # O checkout acontece no tempo base
         }
         producer.send(WEB_EVENTS_TOPIC, value=evento_checkout)
-        print(f"-> Evento enviado: {evento_checkout['tipo_evento']}") if bprint else None
 
         # Gera as transações
-        for prod in produtos:
+        for prod in produtos_no_carrinho:
             transacao = {
                 "id_transacao": str(uuid.uuid4()), "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
                 "nome_usuario": usuario["nome_usuario"], "id_produto": prod["id_produto"], "categoria": prod["categoria"],
