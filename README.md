@@ -61,6 +61,7 @@ Esta é a etapa mais importante para evitar o erro UnsatisfiedLinkError. Precisa
    - Baixe a pasta referente a versão correta
 3. Coloque os arquivos na pasta bin:
    - Certifique-se de que ambos os arquivos, `winutils.exe` e `hadoop.dll`, estejam dentro de `C:\hadoop\bin`.
+4. Crie um diretório `C:/tmp/spark_checkpoints`.
 
 ### Passo 4: Configurar as Variáveis de Ambiente
 Aqui, vamos dizer ao Windows onde encontrar o Java, o Spark e o Hadoop.
