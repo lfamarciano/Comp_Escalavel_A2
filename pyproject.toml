@@ -13,4 +13,5 @@ dependencies = [
     "pandas>=2.3.0",
     "psycopg2==2.9.10",
     "redis>=6.2.0",
+    "pyspark>=4.0.0",
 ]
