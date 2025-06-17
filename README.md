@@ -126,12 +126,13 @@ Criar um pipeline escalável para processamento de dados utilizando os mecanismo
 	- metodo_pagamento: String (e.g., "cartao_credito", "boleto", "pix")
 	- status_pedido: String (e.g., "processando", "enviado", "entregue", "cancelado")
 	- id_carrinho: UUID (para correlação com eventos de carrinho)
+   
 - eventos web -> ew
 	- id_evento: UUID
 	- id_usuario: UUID (se logado)
 	- id_sessao: UUID
 	- id_carrinho: UUID (se o evento está relacionado ao carrinho)
-	- tipo_evento: String (e.g., "visualizacao_produto", "adicionar_carrinho", "remover_carrinho", "carrinho_criado", "checkout_iniciado", "checkout_concluido", "pesquisa", "login")
+	- tipo_evento: String (e.g., "visualizacao_produto", "produto_adicionado_carrinho", "carrinho_criado", "checkout_concluido", "login")
 	- id_produto: UUID (se o evento estiver relacionado a um produto)
 	- timestamp_evento: Timestamp (ISO 8601)
 
