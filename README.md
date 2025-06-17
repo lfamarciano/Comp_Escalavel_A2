@@ -1,5 +1,13 @@
 # Configuração do ambiente de desenvolvimento
 
+## PostgreSQL
+
+Baixe e execute o instalador de Windows para a versão mais recente do PostgreSQL (17.5) no site [Enterprise DB](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)
+
+## Docker Desktop
+
+Baixe e execute o instalador de Windows para a versão mais recente do Docker Desktop na [página oficial do Docer](https://www.docker.com/products/docker-desktop/)
+
 ## Baixando dependências python
 Nesse projeto estamos utilizando `uv` como gerenciador de dependências. O `uv` é um gerenciador de dependências altamente eficiente do python que resolve quaisquer problemas de dependência automaticamente enquanto garante uma instalação muito mais rápida do que simplesmente utilizando o `pip`
 
