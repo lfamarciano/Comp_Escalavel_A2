@@ -1,13 +1,5 @@
 import psycopg2
-
-# Configure com os dados do seu banco de dados
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'postgres',
-    'password': '123',  # Lembre-se de usar a sua senha real aqui
-    'port': '5432',
-    'database': 'ecommerce_db'
-}
+from create_db import DB_CONFIG
 
 def check_row_counts():
     """Conecta ao banco de dados e imprime a contagem de linhas de cada tabela."""

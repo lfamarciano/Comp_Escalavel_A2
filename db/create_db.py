@@ -2,14 +2,7 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'postgres',
-    'password': '123',
-    'port': '5432'
-}
-
-DB_NAME = 'ecommerce_db'
+from db_config import DB_CONFIG, DB_NAME
 
 def create_database():
     conn = None

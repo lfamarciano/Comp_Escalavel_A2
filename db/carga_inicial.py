@@ -4,15 +4,7 @@ from faker import Faker
 from faker_commerce import Provider
 import random
 from datetime import timedelta
-
-# Config bd
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'postgres',
-    'password': '123',
-    'port': '5432',
-    'database': 'ecommerce_db'
-}
+from create_db import DB_CONFIG
 
 fake = Faker('pt_BR')
 fake.add_provider(Provider)
