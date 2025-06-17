@@ -4,3 +4,5 @@ venv/
 .env
 .vscode/
 *.ipynb
+
+__pycache__
