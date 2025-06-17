@@ -214,7 +214,7 @@ def worker_producer(worker_id, usuarios, produtos):
     while True:
         try:
             usuario_selecionado = random.choice(usuarios)
-            simular_atividade_cliente(producer, usuario_selecionado, produtos)
+            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=True)
             producer.flush()
             time.sleep(random.uniform(0.5, 2.0)) # Cada worker tem seu próprio ritmo
         except Exception as e:
