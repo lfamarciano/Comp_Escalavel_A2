@@ -1,5 +1,5 @@
 # ANTES DE EXECUTAR ESTE ARQUIVO, CERTIFIQUE-SE DE QUE O DOCKER DESCKTOP ESTÁ INSTALADO
-# DETRO DA PASTA /kafka RODE O SEGUINTE COMANDO NO TERMINAL PARA CRIAR E INICIAR OS CONTEINERES:
+# RODE O SEGUINTE COMANDO NO TERMINAL PARA CRIAR E INICIAR OS CONTEINERES:
 # > docker-compose up
 # PARA VERIFICAR SE OS CONTEINERES ESTÃO RODANDO, USE O COMANDO:
 # > docker ps
@@ -172,7 +172,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
     for i, prod in enumerate(produtos_no_carrinho):
         evento_add_carrinho = {
             "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
-            "tipo_evento": "add_prod_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
+            "tipo_evento": "produto_adicionado_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
             "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(5, 14 - i))
         }
         producer.send(WEB_EVENTS_TOPIC, value=evento_add_carrinho)
@@ -221,7 +221,7 @@ def worker_producer(worker_id, usuarios, produtos):
     while True:
         try:
             usuario_selecionado = random.choice(usuarios)
-            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=True)
+            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=False)
             producer.flush()
             time.sleep(random.uniform(0.5, 2.0)) # Cada worker tem seu próprio ritmo
         except Exception as e:
@@ -231,7 +231,7 @@ def worker_producer(worker_id, usuarios, produtos):
 # Orquestrador Principal
 if __name__ == "__main__":    
     # Define quantos produtores paralelos você quer rodar
-    NUM_PROCESSES = 4 
+    NUM_PROCESSES = 1 
 
     # Busca os dados do DB uma única vez no processo principal
     usuarios_db = fetch_usuarios_from_db()
