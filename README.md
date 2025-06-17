@@ -1,3 +1,94 @@
+# Configuração do ambiente de desenvolvimento
+
+## GUIA PRA CONFIGURAR O SPARK NO WINDOWS
+### Passo 1: Instalar o Java Development Kit (JDK) correto
+O Spark é uma aplicação Java e precisa do JDK para rodar. A versão do Spark que estamos usando (4.0.0) exige o Java 17.
+
+1. Baixe o JDK 17: 
+   - Recomendamos o OpenJDK da Adoptium, que é gratuito e confiável
+   - Link de Download: (Adoptium OpenJDK 17 LTS)[https://adoptium.net/temurin/releases/?version=17]
+2. Selecione Windows e x64, e baixe o instalador `.msi`.
+3. Instale o Java: Execute o arquivo `.msi`.
+   - PONTO CRÍTICO: Durante a instalação, em "Custom Setup", certifique-se de que a opção "Set JAVA_HOME variable" esteja marcada para ser instalada. Isso configura a variável de ambiente `JAVA_HOME` automaticamente.
+
+### Passo 2: Baixar e Descompactar o Spark
+Agora, vamos baixar o "motor" do Spark.
+
+1. Acesse a página de downloads do Spark: (Apache Spark Downloads) [https://spark.apache.org/downloads.html]
+
+2. Selecione as versões corretas:
+   - `Choose a Spark release`: 4.0.0
+   - `Choose a package type`: Pre-built for Apache Hadoop 3.4 and later
+3. Baixe o arquivo `.tgz` clicando no primeiro link de download.
+4. Crie e Descompacte:
+- Crie uma pasta simples na raiz do seu disco, por exemplo: `C:\spark`.
+- Use o 7-Zip para descompactar o arquivo .tgz que você baixou. Você precisará fazer isso em duas etapas:
+- Extraia o arquivo `spark-4.0.0-bin-hadoop3.tgz` para obter um arquivo `spark-4.0.0-bin-hadoop3.tar`.
+- Extraia o arquivo .tar para dentro da pasta `C:\spark`.
+- Ao final, a estrutura de pastas deve ser: `C:\spark\spark-4.0.0-bin-hadoop3`.
+
+### Passo 3: Configurar a Camada de Compatibilidade do Hadoop
+Esta é a etapa mais importante para evitar o erro UnsatisfiedLinkError. Precisamos de dois arquivos do Hadoop.
+
+1. Crie a Estrutura de Pastas:
+   - Crie uma pasta hadoop na raiz do seu disco: `C:\hadoop`.
+   - Dentro dela, crie uma pasta bin: `C:\hadoop\bin`.
+2. Baixe os Arquivos Necessários:
+   - O Spark 4.0 foi compilado com o Hadoop 3.4, mas usaremos os utilitários da versão 3.3.6, que são compatíveis.
+   - Baixe o `winutils.exe` e o `hadoop.dll` do seguinte link:
+   - https://github.com/cdarlint/winutils/blob/master/hadoop-3.3.6/bin/winutils.exe
+   - Baixe a pasta referente a versão correta
+3. Coloque os arquivos na pasta bin:
+   - Certifique-se de que ambos os arquivos, `winutils.exe` e `hadoop.dll`, estejam dentro de `C:\hadoop\bin`.
+
+### Passo 4: Configurar as Variáveis de Ambiente
+Aqui, vamos dizer ao Windows onde encontrar o Java, o Spark e o Hadoop.
+
+1. Abra as Variáveis de Ambiente:
+   - No menu Iniciar, pesquise por Editar as variáveis de ambiente do sistema e abra.
+   - Clique no botão Variáveis de Ambiente....
+2. Crie as Variáveis de Sistema (na seção de baixo):
+   - Clique em "Novo..." para cada uma das seguintes variáveis:
+   - JAVA_HOME:
+     - Nome: JAVA_HOME
+     - Valor: C:\Program Files\Eclipse Adoptium\jdk-17.0.15.8-hotspot (Verifique o caminho exato na sua máquina, a versão pode variar um pouco).
+   - SPARK_HOME:
+     - Nome: SPARK_HOME
+     - Valor: C:\spark\spark-4.0.0-bin-hadoop3
+   - HADOOP_HOME:
+     - Nome: HADOOP_HOME
+     - Valor: C:\hadoop
+   - PYSPARK_PYTHON:
+     - Nome: PYSPARK_PYTHON
+     - Valor: python (Isso instrui o Spark a usar o Python que estiver ativo no terminal, respeitando seu ambiente virtual venv).
+3. Edite a Variável Path do Sistema:
+   - Na mesma seção de "Variáveis de sistema", encontre e selecione a variável Path e clique em Editar....
+   - Clique em Novo e adicione estas três entradas, uma de cada vez:
+     - %SPARK_HOME%\bin
+     - %HADOOP_HOME%\bin
+     - %JAVA_HOME%\bin
+   - Salve tudo clicando em OK em todas as janelas.
+
+### Passo 5: Permissões e Reinicialização
+
+1. Conceda Permissões (Modo Administrador):
+   - Abra o Prompt de Comando (cmd) como Administrador.
+   - Execute os seguintes comandos (se o seu Windows for em português, use Usuários; se for em inglês, use Users):
+     - icacls C:\hadoop /grant Usuários:F /T
+     - icacls C:\spark /grant Usuários:F /T
+2. REINICIE O COMPUTADOR: Este passo é crucial e força o Windows a carregar todas as novas configurações e permissões.
+
+### Passo 6: Verificação Final
+
+1. Após reiniciar, abra um novo terminal (PowerShell ou CMD)
+2. Navegue para a pasta do seu projeto (use um caminho sem espaços, ex: C:\projetos\meu_projeto).
+3. Ative seu ambiente virtual: .\venv\Scripts\Activate.ps1.
+4. Execute o spark-submit com seu script. Exemplo:
+```
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0 seu_script_spark.py
+```
+5. Se tudo foi configurado corretamente, o Spark deverá iniciar sem erros. Parabéns, seu ambiente está pronto!
+
 # Trabalho A2 de Computação Escalável 
 ## Objetivo
 Criar um pipeline escalável para processamento de dados utilizando os mecanismos apresentados na disciplina.
