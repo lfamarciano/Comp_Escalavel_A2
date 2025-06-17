@@ -1,5 +1,15 @@
 # Configuração do ambiente de desenvolvimento
 
+## Arquivo `.env`
+
+Crie um arquivo `.env` na raíz do projeto com o seguinte conteúdo:
+
+```config
+DB_CONFIG={"host": "localhost", "user": "postgres", "password": {senha do seu psql}, "port": {porta do seu psql}(a padrao é 5432), "database": "ecommerce_db"}
+```
+
+Isso vai garantir que você não precise alterar para suas configurações do PostgreSQL (e outras ferramentas) em cada script que forem necessárias.
+
 ## PostgreSQL
 
 Baixe e execute o instalador de Windows para a versão mais recente do PostgreSQL (17.5) no site [Enterprise DB](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)
