@@ -13,6 +13,7 @@ import random
 import json
 from decimal import Decimal
 import time
+from datetime import datetime, timedelta
 import os
 import multiprocessing
 from faker import Faker
@@ -115,6 +116,9 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
     id_sessao = str(uuid.uuid4())
     print(f"[INÍCIO DA JORNADA] Usuário {usuario['nome_usuario']} ---") if bprint else None
 
+    # Usamos o tempo atual como base para toda a jornada
+    tempo_base_jornada = datetime.now()
+    
     # Login
     evento_login = {
         "id_evento": str(uuid.uuid4()),
@@ -123,7 +127,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
         "tipo_evento": "login",
         "id_carrinho": None,
         "id_produto": None,
-        "timestamp_evento": fake.iso8601()
+        "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(30, 60))
     }
     producer.send(WEB_EVENTS_TOPIC, value=evento_login)
     print(f"-> Evento enviado: {evento_login['tipo_evento']}") if bprint else None
@@ -138,7 +142,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
             "tipo_evento": "visualizacao_produto",
             "id_carrinho": None,
             "id_produto": produto["id_produto"],
-            "timestamp_evento": fake.iso8601()
+            "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(5, 14 - i))
         }
         producer.send(WEB_EVENTS_TOPIC, value=evento_visualizacao)
         print(f"-> Evento enviado: {evento_visualizacao['tipo_evento']} (Produto: {produto['nome_produto']})") if bprint else None
@@ -153,7 +157,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
     evento_carrinho_criado = {
         "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
         "tipo_evento": "carrinho_criado", "id_carrinho": id_carrinho, "id_produto": None,
-        "timestamp_evento": fake.iso8601()
+        "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(15, 29))
     }
     producer.send(WEB_EVENTS_TOPIC, value=evento_carrinho_criado)
     print(f"-> Evento enviado: {evento_carrinho_criado['tipo_evento']}") if bprint else None
@@ -166,7 +170,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
         evento_add_carrinho = {
             "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "add_prod_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
-            "timestamp_evento": fake.iso8601()
+            "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(5, 14 - i))
         }
         producer.send(WEB_EVENTS_TOPIC, value=evento_add_carrinho)
         print(f"-> Evento enviado: {evento_add_carrinho['tipo_evento']} (Produto: {prod['nome_produto']})") if bprint else None
@@ -177,7 +181,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
         evento_checkout = {
             "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "checkout_concluido", "id_carrinho": id_carrinho, "id_produto": None,
-            "timestamp_evento": fake.iso8601()
+            "timestamp_evento": tempo_base_jornada
         }
         producer.send(WEB_EVENTS_TOPIC, value=evento_checkout)
         print(f"-> Evento enviado: {evento_checkout['tipo_evento']}") if bprint else None
