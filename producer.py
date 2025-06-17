@@ -21,6 +21,7 @@ from faker import Faker
 from kafka import KafkaProducer
 import psycopg2
 import psycopg2.extras
+from db.db_config import DB_CONFIG
 
 fake = Faker()
 # fake.add_provider(Provider)
@@ -42,14 +43,6 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super(CustomJSONEncoder, self).default(obj)
 
 
-# Config bd
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'postgres',
-    'password': '123',
-    'port': '5432',
-    'database': 'ecommerce_db'
-}
 
 # Funções para buscar dados do PostgreSQL
 def fetch_produtos_from_db():
