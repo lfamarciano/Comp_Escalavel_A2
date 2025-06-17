@@ -2,15 +2,7 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from dotenv import load_dotenv
-import os
-import json
-
-load_dotenv()
-
-DB_CONFIG = json.loads(os.getenv("DB_CONFIG"))
-
-DB_NAME = str(DB_CONFIG['database'])
+from db_config import DB_CONFIG, DB_NAME
 
 def create_database():
     conn = None
