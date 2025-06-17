@@ -1,5 +1,5 @@
 # ANTES DE EXECUTAR ESTE ARQUIVO, CERTIFIQUE-SE DE QUE O DOCKER DESCKTOP ESTÁ INSTALADO
-# DETRO DA PASTA /kafka RODE O SEGUINTE COMANDO NO TERMINAL PARA CRIAR E INICIAR OS CONTEINERES:
+# RODE O SEGUINTE COMANDO NO TERMINAL PARA CRIAR E INICIAR OS CONTEINERES:
 # > docker-compose up
 # PARA VERIFICAR SE OS CONTEINERES ESTÃO RODANDO, USE O COMANDO:
 # > docker ps
@@ -21,6 +21,7 @@ from faker import Faker
 from kafka import KafkaProducer
 import psycopg2
 import psycopg2.extras
+from db.db_config import DB_CONFIG
 
 fake = Faker()
 # fake.add_provider(Provider)
@@ -33,19 +34,15 @@ WEB_EVENTS_TOPIC = 'eventos_web'
 # Classe para ensinar a biblioteca JSON a converter o tipo Decimal
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
+        # Se o objeto for do tipo Decimal, converte para float
         if isinstance(obj, Decimal):
-            # Converte Decimal para float, que é um tipo que o JSON entende
             return float(obj)
+        # Se o objeto for do tipo datetime, converte para string no formato ISO
+        if isinstance(obj, datetime):
+            return obj.isoformat()
         return super(CustomJSONEncoder, self).default(obj)
 
-# Config bd
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'postgres',
-    'password': '123',
-    'port': '5432',
-    'database': 'ecommerce_db'
-}
+
 
 # Funções para buscar dados do PostgreSQL
 def fetch_produtos_from_db():
@@ -133,7 +130,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
     print(f"-> Evento enviado: {evento_login['tipo_evento']}") if bprint else None
 
     # visualização de produtos
-    for _ in range(random.randint(1, 4)):
+    for i,_ in enumerate(range(random.randint(1, 4))):
         produto = random.choice(todos_produtos)
         evento_visualizacao = {
             "id_evento": str(uuid.uuid4()),
@@ -164,12 +161,11 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
     # time.sleep(random.uniform(0.1, 0.5)) # espera um pouco ante de adicionar 
 
     # adiciona itens ao carrinho
-    num_produtos = random.randint(1, 4)
-    produtos = random.sample(todos_produtos, num_produtos)
-    for prod in produtos: 
+    produtos_no_carrinho = random.sample(todos_produtos, random.randint(1, 4))
+    for i, prod in enumerate(produtos_no_carrinho):
         evento_add_carrinho = {
             "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
-            "tipo_evento": "add_prod_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
+            "tipo_evento": "produto_adicionado_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
             "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(5, 14 - i))
         }
         producer.send(WEB_EVENTS_TOPIC, value=evento_add_carrinho)
@@ -178,16 +174,16 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
 
     # Decisão de Conversão (30% de chance de converter o carrinho)
     if random.random() < 0.30:
+        if bprint: print("-> Usuário decidiu CONVERTER.")
         evento_checkout = {
             "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "checkout_concluido", "id_carrinho": id_carrinho, "id_produto": None,
-            "timestamp_evento": tempo_base_jornada
+            "timestamp_evento": tempo_base_jornada # O checkout acontece no tempo base
         }
         producer.send(WEB_EVENTS_TOPIC, value=evento_checkout)
-        print(f"-> Evento enviado: {evento_checkout['tipo_evento']}") if bprint else None
 
         # Gera as transações
-        for prod in produtos:
+        for prod in produtos_no_carrinho:
             transacao = {
                 "id_transacao": str(uuid.uuid4()), "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
                 "nome_usuario": usuario["nome_usuario"], "id_produto": prod["id_produto"], "categoria": prod["categoria"],
@@ -218,7 +214,7 @@ def worker_producer(worker_id, usuarios, produtos):
     while True:
         try:
             usuario_selecionado = random.choice(usuarios)
-            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=True)
+            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=False)
             producer.flush()
             time.sleep(random.uniform(0.5, 2.0)) # Cada worker tem seu próprio ritmo
         except Exception as e:
@@ -228,7 +224,7 @@ def worker_producer(worker_id, usuarios, produtos):
 # Orquestrador Principal
 if __name__ == "__main__":    
     # Define quantos produtores paralelos você quer rodar
-    NUM_PROCESSES = 4 
+    NUM_PROCESSES = 1 
 
     # Busca os dados do DB uma única vez no processo principal
     usuarios_db = fetch_usuarios_from_db()
