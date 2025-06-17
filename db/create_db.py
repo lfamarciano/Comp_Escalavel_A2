@@ -2,14 +2,15 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'postgres',
-    'password': '123',
-    'port': '5432'
-}
+from dotenv import load_dotenv
+import os
+import json
 
-DB_NAME = 'ecommerce_db'
+load_dotenv()
+
+DB_CONFIG = json.loads(os.getenv("DB_CONFIG"))
+
+DB_NAME = str(DB_CONFIG['database'])
 
 def create_database():
     conn = None
