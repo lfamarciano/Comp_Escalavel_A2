@@ -50,14 +50,26 @@ def main():
     print("\nIniciando leitura da tabela de clientes...")
     dc_raw_df = etl_jobs.read_from_postgres_with_partition(spark, jdbc_url, db_properties, 'dados_clientes', 'id_usuario')
 
+    # Ler eventos web
+    print("\nIniciando leitura da tabela de eventos web...")
+    ew_raw_df = etl_jobs.read_from_postgres_with_partition(spark, jdbc_url, db_properties, 'eventos_web', 'id_evento')
+
+    # Ler catálogo de produtos
+    print("\nIniciando leitura da tabela de catálogo de produtos...")
+    cp_raw_df = etl_jobs.read_from_postgres_with_partition(spark, jdbc_url, db_properties, 'catalogo_produtos', 'id_produto')
+
     # Limpar dados
     print("\nIniciando limpeza dos dados...")
     tv_cleaned_df = etl_jobs.clean_transactions_data(tv_raw_df)
     dc_cleaned_df = etl_jobs.clean_clients_data(dc_raw_df)
-    
+    ew_cleaned_df = etl_jobs.clean_web_events_data(ew_raw_df)
+    cp_cleaned_df = etl_jobs.clean_products_data(cp_raw_df)
+
     print("\nSchemas após limpeza:")
     tv_cleaned_df.printSchema()
     dc_cleaned_df.printSchema()
+    ew_cleaned_df.printSchema()
+    cp_cleaned_df.printSchema()
     
     # Escrever para o Delta Lake
     delta_base_path = etl_jobs.deltalake_bronze_path
@@ -66,6 +78,8 @@ def main():
     print("\nIniciando escrita para o Delta Lake...")
     etl_jobs.write_to_delta(tv_cleaned_df, str(delta_base_path / "transacoes_vendas"))
     etl_jobs.write_to_delta(dc_cleaned_df, str(delta_base_path / "dados_clientes"))
+    etl_jobs.write_to_delta(ew_cleaned_df, str(delta_base_path / "eventos_web"))
+    etl_jobs.write_to_delta(cp_cleaned_df, str(delta_base_path / "catalogo_produtos"))
 
     print("\nPipeline concluído com sucesso!")
     spark.stop()

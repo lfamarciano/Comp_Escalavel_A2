@@ -23,6 +23,27 @@ def clean_clients_data(df: DataFrame) -> DataFrame:
         "segmento_cliente", "cidade", "estado", "pais"
     )
 
+def clean_products_data(df: DataFrame) -> DataFrame:
+    """Aplica a limpeza na tabela de catálogo."""
+    return df.withColumn(
+        "preco_unitario", col("preco_unitario").cast("double")
+        ).withColumn(
+        "estoque_disponivel", col("estoque_disponivel").cast("integer")
+        ).select(
+            "id_produto", "nome_produto", "descricao_produto",
+            "categoria", "preco_unitario", "estoque_disponivel"
+            )
+    
+def clean_web_events_data(df: DataFrame) -> DataFrame:
+    """Aplica a limpeza na tabela de eventos web."""
+    return df.withColumn(
+        "timestamp_evento_ts", to_timestamp(col("timestamp_evento"))
+    ).select(
+        "id_evento", "id_usuario", "id_sessao", "id_carrinho",
+        "tipo_evento", "id_produto",
+        col("timestamp_evento_ts").alias("timestamp_evento")
+    )
+
 if __name__ == "__main___":
     # Limpeza e tipagem para transacoes_vendas -> tv_df
     tv_df_cleaned = tv_df_raw.withColumn(

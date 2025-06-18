@@ -62,3 +62,17 @@ if __name__ == "__main___":
     dc_df_raw = read_from_postgres_with_partition(spark, coluna_id_dc, tabela_dc_nome)
     print("Leitura da tabela 'dados_clientes' concluída.")
     dc_df_raw.printSchema()
+
+    print("Lendo a tabela 'eventos_web' do PostgreSQL...")
+    tabela_ew_nome = 'eventos_web'
+    coluna_id_dc = "id_evento"
+    ew_df_raw = read_from_postgres_with_partition(spark, coluna_id_dc, tabela_ew_nome)
+    print("Leitura da tabela 'eventos_web' concluída.")
+    ew_df_raw.printSchema()
+
+    print("Lendo a tabela 'catalogo_produtos' dos PostgreSQL...")
+    tabela_cp_nome = 'catalogo_produtos'
+    coluna_id_cp = "id_produto"
+    cp_df_raw = read_from_postgres_with_partition(spark, coluna_id_cp, tabela_cp_nome)
+    print("Leitura da tabela 'catalogo_produtos' concluída.")
+    cp_df_raw.printSchema()
