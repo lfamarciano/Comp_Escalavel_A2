@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 
 from pathlib import Path
 
-from metrics_jobs import calculate_revenue_growth
+from metrics_jobs import calculate_daily_revenue_metrics
 
 def main():
     """Função principal que orquestra o cálculo das métricas."""
@@ -26,7 +26,7 @@ def main():
 
     # Calculando métrica de crescimento de receita
     print("Calculando crescimento de receita...")
-    crescimento_receita_df = calculate_revenue_growth(transacoes_df, clientes_df)
+    crescimento_receita_df = calculate_daily_revenue_metrics(transacoes_df, clientes_df)
     
     print("\nResultado - Crescimento da Receita por Segmento:")
     crescimento_receita_df.show(truncate=False)

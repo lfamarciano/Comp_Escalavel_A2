@@ -1,1 +1,1 @@
-from calculate_revenue_growth import calculate_revenue_growth
+from calculate_revenue_growth import calculate_daily_revenue_metrics
