@@ -16,3 +16,15 @@ python-dotenv==1.1.0
     # via dotenv
 tzdata==2025.2
     # via faker
+streamlit==1.45.0
+    # via comp-escalavel-a2 (pyproject.toml)
+pandas==2.2.3
+    # via comp-escalavel-a2 (pyproject.toml)
+redis==5.2.1
+    # via comp-escalavel-a2 (pyproject.toml)
+plotly==5.20.0
+    # via comp-escalavel-a2 (pyproject.toml)
+streamlit-autorefresh==0.1.0
+    # via comp-escalavel-a2 (pyproject.toml)
+matplotlib==3.10.1
+    # via comp-escalavel-a2 (pyproject.toml)
