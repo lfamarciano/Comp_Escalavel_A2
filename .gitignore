@@ -6,3 +6,6 @@ venv/
 *.ipynb
 
 __pycache__
+
+# Deltalake folders
+deltalake
