@@ -16,8 +16,7 @@ def main():
 
     # Definindo caminhos
     bronze_base_path = Path("deltalake/bronze")
-    # TODO: Substituiremos pelo Redis
-    # gold_base_path = Path("deltalake/gold")
+    gold_base_path = Path("deltalake/gold")
     
     # Lendo dados da camada bronze
     print("Lendo tabelas da camada Bronze...")
@@ -27,17 +26,16 @@ def main():
 
     # Calculando métrica de crescimento de receita
     print("Calculando crescimento de receita...")
-    crescimento_receita_df = calculate_daily_revenue_metrics(transacoes_df, clientes_df)
+    receita_diaria_historica_df = calculate_daily_revenue_metrics(transacoes_df, clientes_df)
     
     print("\nResultado - Crescimento da Receita por Segmento:")
-    crescimento_receita_df.show(truncate=False)
+    receita_diaria_historica_df.show(truncate=False)
 
-    # 5. SALVAR O RESULTADO NA CAMADA GOLD
-    print(f"SALVANDO METRICA NO REDIS")
-    # output_path = gold_base_path / "crescimento_receita"
-    # print(f"\nSalvando resultado em: {output_path}")
-    # crescimento_receita_df.write.format("delta").mode("overwrite").save(str(output_path))
-    
+    # Salvando resultado na camada OURO
+    output_path = gold_base_path / "crescimento_receita"
+    print(f"\nSalvando resultado final DeltaLake (camada Ouro): {output_path}")
+    receita_diaria_historica_df.write.format("delta").mode("overwrite").save(str(output_path))
+
     print("\nMétrica de crescimento de receita calculada e salva com sucesso!")
 
     # Calculando métrica de produtos mais vendidos por trimestre no último ano
