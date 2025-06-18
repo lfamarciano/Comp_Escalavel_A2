@@ -10,12 +10,11 @@ dependencies = [
     { name = "dotenv" },
     { name = "faker" },
     { name = "faker-commerce" },
-    { name = "kafka" },
     { name = "kafka-python" },
     { name = "pandas" },
     { name = "psycopg2" },
-    { name = "redis" },
     { name = "pyspark" },
+    { name = "redis" },
 ]
 
 [package.metadata]
@@ -23,12 +22,11 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "faker", specifier = "==37.4.0" },
     { name = "faker-commerce", specifier = "==1.0.4" },
-    { name = "kafka", specifier = "==1.3.5" },
     { name = "kafka-python", specifier = ">=2.2.11" },
     { name = "pandas", specifier = ">=2.3.0" },
     { name = "psycopg2", specifier = "==2.9.10" },
-    { name = "redis", specifier = ">=6.2.0" },
     { name = "pyspark", specifier = ">=4.0.0" },
+    { name = "redis", specifier = ">=6.2.0" },
 ]
 
 [[package]]
@@ -64,15 +62,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/db/af/02de5839967ec49d24d825664b0740e0e2dc278ff24f05f24d7d9bfdbe76/faker-commerce-1.0.4.tar.gz", hash = "sha256:f53da04143ab70754493fa97c0c64f5208c8f8f3c50273516ee3cafcea372953", size = 3076, upload-time = "2024-04-04T10:34:48.264Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6c/7b/f6d3f054a77ea48caaec8170bceac71c0aec54d94729b9f66ebd1fcc8fe1/faker_commerce-1.0.4-py3-none-any.whl", hash = "sha256:6780fe30801aac399a64d421cd85c4593f7cd54d838cb400e8d31e463722622c", size = 3279, upload-time = "2024-04-04T10:34:46.811Z" },
-]
-
-[[package]]
-name = "kafka"
-version = "1.3.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3b/1b/44605e699e0970a2be3d7135d185f95e8605399aa0f2a9d64de342eae4b7/kafka-1.3.5.tar.gz", hash = "sha256:ffb3348cd918c31344b1a2eb61f692cbc423c83b1b06466a86de3db8a3f6a018", size = 227516, upload-time = "2017-10-07T23:53:16.826Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/71/73286e748ac5045b6a669c2fe44b03ac4c5d3d2af9291c4c6fc76438a9a9/kafka-1.3.5-py2.py3-none-any.whl", hash = "sha256:35a49e9a432f6792aad48b2ab09d03867357aaa06eacba2678b7fd0808156e5c", size = 207188, upload-time = "2017-10-07T23:53:13.325Z" },
 ]
 
 [[package]]
@@ -171,16 +160,6 @@ wheels = [
 ]
 
 [[package]]
-name = "python-dateutil"
-version = "2.9.0.post0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
-]
 name = "py4j"
 version = "0.10.9.9"
 source = { registry = "https://pypi.org/simple" }
@@ -197,6 +176,18 @@ dependencies = [
     { name = "py4j" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9d/0e/5b38d51f1b1c2618cccfbf35093268665af9a3bdb493e5a3ecd991def633/pyspark-4.0.0.tar.gz", hash = "sha256:38db1b4f6095a080d7605e578d775528990e66dc326311d93e94a71cfc24e5a5", size = 434132212, upload-time = "2025-05-23T03:29:33.916Z" }
+
+[[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+]
 
 [[package]]
 name = "python-dotenv"
