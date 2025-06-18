@@ -6,7 +6,7 @@ from kafka import KafkaConsumer
 from db.db_config import DB_CONFIG
 
 
-# --- 1. Configurações ---
+# 1. Configurações
 KAFKA_BROKER_URL = 'localhost:9092'
 TRANSACTIONS_TOPIC = 'transacoes_vendas'
 WEB_EVENTS_TOPIC = 'eventos_web'
@@ -14,9 +14,9 @@ KAFKA_CONSUMER_GROUP = 'db-persistor-group'
 
 # Configurações do Lote
 BATCH_SIZE = 100  # Número de mensagens para acumular antes de inserir
-BATCH_TIMEOUT = 5 # Segundos para esperar antes de forçar a inserção
+BATCH_TIMEOUT = 10 # Segundos para esperar antes de forçar a inserção
 
-# --- 2. Função de Inserção em Lote ---
+# 2. Função de Inserção em Lote
 def process_batch(cursor, transacoes_batch, eventos_batch):
     """Insere os lotes de dados no banco de dados usando execute_values para alta performance."""
     if not transacoes_batch and not eventos_batch:
@@ -64,7 +64,7 @@ def process_batch(cursor, transacoes_batch, eventos_batch):
         cursor.connection.rollback()
 
 
-# --- 3. Função Principal do Consumidor ---
+# 3. Função Principal do Consumidor
 def main():
     """Função principal que consome do Kafka e insere no PostgreSQL em lotes."""
     while True:
