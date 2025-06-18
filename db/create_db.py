@@ -5,23 +5,44 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from db_config import DB_CONFIG, DB_NAME
 
 def create_database():
+    """
+    Garante um banco de dados limpo. Se o banco de dados já existir,
+    ele o apaga e cria novamente de forma segura.
+    Retorna True se bem-sucedido, False caso contrário.
+    """
+    # Conecta-se à base de dados de manutenção 'postgres' para realizar operações de admin
+    conn_config_admin = {**DB_CONFIG, 'database': 'postgres'}
     conn = None
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**conn_config_admin)
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         
         with conn.cursor() as cursor:
+            # Verifica se a base de dados alvo existe
             cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,))
             exists = cursor.fetchone()
             
-            if not exists:
-                cursor.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(DB_NAME)))
-                print(f"Database '{DB_NAME}' criado com sucesso!")
-            else:
-                print(f"ℹDatabase '{DB_NAME}' já existe. Prosseguindo...")
+            # Se existir, apaga-a primeiro
+            if exists:
+                print(f"Database '{DB_NAME}' já existe. Apagando...")
+                # Termina quaisquer outras conexões ativas com a base de dados alvo
+                cursor.execute(sql.SQL(
+                    "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = %s"
+                ), [DB_NAME])
                 
-    except Exception as e:
-        print(f"Erro ao criar database: {e}")
+                # Apaga a base de dados
+                cursor.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(DB_NAME)))
+                print(f"Database '{DB_NAME}' apagado com sucesso.")
+
+            # Cria a base de dados do zero
+            print(f"Criando database '{DB_NAME}'...")
+            cursor.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(DB_NAME)))
+            print(f"Database '{DB_NAME}' criado com sucesso!")
+            return True # Retorna sucesso
+            
+    except psycopg2.Error as e:
+        print(f"ERRO ao recriar o banco de dados: {e}")
+        return False # Retorna falha
     finally:
         if conn is not None:
             conn.close()
@@ -58,8 +79,8 @@ def create_tables():
             """,
             """
             CREATE TABLE IF NOT EXISTS transacoes_vendas (
-                id_transacao SERIAL PRIMARY KEY,
-                id_pedido VARCHAR(20) NOT NULL,
+                id_transacao UUID PRIMARY KEY,
+                id_pedido UUID NOT NULL,
                 id_usuario INTEGER REFERENCES dados_clientes(id_usuario),
                 id_produto INTEGER REFERENCES catalogo_produtos(id_produto),
                 quantidade_produto INTEGER NOT NULL,
@@ -67,15 +88,15 @@ def create_tables():
                 data_compra TIMESTAMP NOT NULL,
                 metodo_pagamento VARCHAR(20) NOT NULL,
                 status_pedido VARCHAR(20) NOT NULL,
-                id_carrinho VARCHAR(20) NOT NULL
+                id_carrinho UUID NOT NULL
             )
             """,
             """
             CREATE TABLE IF NOT EXISTS eventos_web (
-                id_evento SERIAL PRIMARY KEY,
+                id_evento UUID PRIMARY KEY,
                 id_usuario INTEGER REFERENCES dados_clientes(id_usuario),
-                id_sessao VARCHAR(50) NOT NULL,
-                id_carrinho VARCHAR(20),
+                id_sessao UUID NOT NULL,
+                id_carrinho UUID,
                 tipo_evento VARCHAR(50) NOT NULL,
                 id_produto INTEGER REFERENCES catalogo_produtos(id_produto),
                 timestamp_evento TIMESTAMP NOT NULL

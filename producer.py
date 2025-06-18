@@ -234,7 +234,7 @@ def worker_producer(worker_id, usuarios, produtos):
 # Orquestrador Principal
 if __name__ == "__main__":    
     # Define quantos produtores paralelos você quer rodar
-    NUM_PROCESSES = 1 
+    NUM_PROCESSES = 4
 
     # Busca os dados do DB uma única vez no processo principal
     usuarios_db = fetch_usuarios_from_db()

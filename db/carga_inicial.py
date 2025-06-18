@@ -5,6 +5,7 @@ from faker_commerce import Provider
 import random
 from datetime import timedelta
 from create_db import DB_CONFIG
+import uuid
 
 fake = Faker('pt_BR')
 fake.add_provider(Provider)
@@ -72,39 +73,39 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
         timestamp_jornada = fake.date_time_between(start_date=data_cadastro_cliente, end_date='now')
 
         # Simula a jornada
-        id_sessao = fake.uuid4()
-        id_carrinho = fake.uuid4()[:20]
+        id_sessao = uuid.uuid4()
+        id_carrinho = uuid.uuid4()
 
         # Evento de Login
-        eventos_web.append((id_usuario, id_sessao, None, 'login', None, timestamp_jornada - timedelta(minutes=10)))
+        eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, None, 'login', None, timestamp_jornada - timedelta(minutes=10)))
 
         # Visualização de produtos
         for _ in range(random.randint(1, 5)):
              produto_visto = random.choice(produtos)
-             eventos_web.append((id_usuario, id_sessao, None, 'visualizacao_produto', produto_visto[0], timestamp_jornada - timedelta(minutes=random.randint(5, 9))))
+             eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, None, 'visualizacao_produto', produto_visto[0], timestamp_jornada - timedelta(minutes=random.randint(5, 9))))
 
         # 85% de não abandonar a sessão
         if random.random() < 0.85:
-            eventos_web.append((id_usuario, id_sessao, id_carrinho, 'carrinho_criado', None, timestamp_jornada - timedelta(minutes=5)))
+            eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, id_carrinho, 'carrinho_criado', None, timestamp_jornada - timedelta(minutes=5)))
             
             # Adiciona produtos ao carrinho
             produtos_no_carrinho = random.sample(produtos, k=random.randint(1, 3))
             for produto_no_carrinho in produtos_no_carrinho:
-                eventos_web.append((id_usuario, id_sessao, id_carrinho, 'produto_adicionado_carrinho', produto_no_carrinho[0], timestamp_jornada - timedelta(minutes=random.randint(2, 4))))
+                eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, id_carrinho, 'produto_adicionado_carrinho', produto_no_carrinho[0], timestamp_jornada - timedelta(minutes=random.randint(2, 4))))
 
             # 30% de chance de comprar
             if random.random() < 0.30:
-                eventos_web.append((id_usuario, id_sessao, id_carrinho, 'checkout_concluido', None, timestamp_jornada))
+                eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, id_carrinho, 'checkout_concluido', None, timestamp_jornada))
                 
                 # Gera as transações para cada item no carrinho
-                id_pedido = fake.uuid4()[:20]
+                id_pedido = uuid.uuid4()
                 for produto_comprado in produtos_no_carrinho:
                     id_produto = produto_comprado[0]
                     preco_unitario = produto_comprado[1]
                     quantidade = 1 # Simplificando para quantidade 1
                     
                     transacoes_vendas.append((
-                        id_pedido, id_usuario, id_produto, quantidade, preco_unitario * quantidade,
+                        uuid.uuid4(), id_pedido, id_usuario, id_produto, quantidade, preco_unitario * quantidade,
                         timestamp_jornada, random.choice(["cartao_credito", "boleto", "pix"]),
                         random.choice(["entregue", "enviado"]), id_carrinho
                     ))
@@ -112,16 +113,18 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
     # Inserir todos os eventos e transações gerados no banco de dados
     psycopg2.extras.execute_values(
         cursor,
-        "INSERT INTO eventos_web (id_usuario, id_sessao, id_carrinho, tipo_evento, id_produto, timestamp_evento) VALUES %s",
+        "INSERT INTO eventos_web (id_evento, id_usuario, id_sessao, id_carrinho, tipo_evento, id_produto, timestamp_evento) VALUES %s",
         eventos_web
     )
 
-    
-    psycopg2.extras.execute_values(
-        cursor,
-        "INSERT INTO transacoes_vendas (id_pedido, id_usuario, id_produto, quantidade_produto, valor_total_compra, data_compra, metodo_pagamento, status_pedido, id_carrinho) VALUES %s",
-        transacoes_vendas
-    )
+
+    if transacoes_vendas:
+        psycopg2.extras.execute_values(
+            cursor,
+            "INSERT INTO transacoes_vendas (id_transacao, id_pedido, id_usuario, id_produto, quantidade_produto, valor_total_compra, data_compra, metodo_pagamento, status_pedido, id_carrinho) VALUES %s",
+            transacoes_vendas
+        )
+
     
     print(f"Total de {len(eventos_web)} eventos web e {len(transacoes_vendas)} transações gerados.")
 
@@ -131,6 +134,8 @@ def main():
     conn = None
     try:
         conn = psycopg2.connect(**DB_CONFIG)
+        psycopg2.extras.register_uuid()
+        
         with conn.cursor() as cursor:
             limpar_dados(cursor)
             
