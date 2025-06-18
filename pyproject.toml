@@ -13,4 +13,8 @@ dependencies = [
     "psycopg2==2.9.10",
     "redis>=6.2.0",
     "pyspark>=4.0.0",
+    "streamlit>=1.45.1",
+    "plotly>=6.1.2",
+    "streamlit-autorefresh>=1.0.1",
+    "matplotlib>=3.10.3",
 ]
