@@ -15,6 +15,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, sum as _sum, count, approx_count_distinct, desc
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
 
+
 # --- 1. CONFIGURAÇÃO PARA WINDOWS ---
 os.environ['HADOOP_HOME'] = 'C:\\hadoop'
 
@@ -51,11 +52,24 @@ schema_eventos = StructType([
 KAFKA_BROKER_URL = "localhost:9092"
 CHECKPOINT_BASE_PATH = "C:/tmp/spark_checkpoints"
 
-df_transacoes_raw = spark.readStream.format("kafka").option("kafka.bootstrap.servers", KAFKA_BROKER_URL).option("subscribe", "transacoes_vendas").option("startingOffsets", "latest").load()
-df_transacoes = df_transacoes_raw.select(from_json(col("value").cast("string"), schema_transacoes).alias("data")).select("data.*")
+df_transacoes_raw = spark.readStream.format("kafka") \
+    .option("kafka.bootstrap.servers", KAFKA_BROKER_URL) \
+    .option("subscribe", "transacoes_vendas").option("startingOffsets", "latest") \
+    .load()
+    
+df_transacoes = df_transacoes_raw.select(from_json(col("value").cast("string"), schema_transacoes) \
+    .alias("data")) \
+    .select("data.*")
 
-df_eventos_raw = spark.readStream.format("kafka").option("kafka.bootstrap.servers", KAFKA_BROKER_URL).option("subscribe", "eventos_web").option("startingOffsets", "latest").load()
-df_eventos = df_eventos_raw.select(from_json(col("value").cast("string"), schema_eventos).alias("data")).select("data.*")
+df_eventos_raw = spark.readStream.format("kafka") \
+    .option("kafka.bootstrap.servers", KAFKA_BROKER_URL) \
+    .option("subscribe", "eventos_web") \
+    .option("startingOffsets", "latest") \
+    .load()
+    
+df_eventos = df_eventos_raw.select(from_json(col("value") \
+    .cast("string"), schema_eventos).alias("data")) \
+    .select("data.*")
 
 print("Streams do Kafka sendo lidos e parseados.")
 
@@ -85,37 +99,78 @@ metricas_globais = df_transacoes.agg(
     _sum("valor_total_compra").alias("receita_total_global"),
     approx_count_distinct("id_pedido").alias("pedidos_totais_global")
 ).selectExpr("receita_total_global", "pedidos_totais_global", "receita_total_global / pedidos_totais_global as ticket_medio_global")
-query_globais = metricas_globais.writeStream.outputMode("complete").foreachBatch(lambda df, epoch_id: write_to_redis(df, "metricas_globais")).option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/globais").start()
+
+query_globais = metricas_globais.writeStream.outputMode("complete") \
+    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "metricas_globais")) \
+    .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/globais") \
+    .start()
+    
 print("Query para 'Métricas Globais' iniciada.")
 
 # === Query 2: Receita por Categoria (Agregação Global) ===
-receita_por_categoria = df_transacoes.groupBy("categoria").agg(_sum("valor_total_compra").alias("receita"))
-query_categoria = receita_por_categoria.writeStream.outputMode("complete").foreachBatch(lambda df, epoch_id: write_to_redis(df, "receita_por_categoria")).option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/categoria").start()
+receita_por_categoria = df_transacoes.groupBy("categoria") \
+    .agg(_sum("valor_total_compra").alias("receita"))
+    
+query_categoria = receita_por_categoria.writeStream \
+    .outputMode("complete") \
+    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "receita_por_categoria")) \
+    .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/categoria") \
+    .start()
+    
 print("Query para 'Receita por Categoria' iniciada.")
 
 # === Query 3: Produtos Mais Vendidos (Top 5 Global) ===
-contagem_produtos = df_transacoes.groupBy("item").agg(count("*").alias("total_vendido"))
+contagem_produtos = df_transacoes.groupBy("item") \
+    .agg(count("*") \
+    .alias("total_vendido"))
+    
 def processa_e_escreve_top_n(df, epoch_id, n=5):
     if not df.isEmpty():
         top_n_df = df.orderBy(desc("total_vendido")).limit(n)
         write_to_redis(top_n_df, "top_5_produtos")
-query_top_produtos = contagem_produtos.writeStream.outputMode("complete").foreachBatch(lambda df, epoch_id: processa_e_escreve_top_n(df, epoch_id, n=5)).option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/top_produtos").start()
+        
+query_top_produtos = contagem_produtos.writeStream \
+    .outputMode("complete") \
+    .foreachBatch(lambda df, epoch_id: processa_e_escreve_top_n(df, epoch_id, n=5)) \
+    .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/top_produtos") \
+    .start()
+    
 print("Query para 'Top 5 Produtos' iniciada.")
 
 # === Query 4 & 5 & 6: Contadores para Taxas ===
-total_logins = df_eventos.filter(col("tipo_evento") == "login").agg(count("*").alias("total"))
-query_logins = total_logins.writeStream.outputMode("complete").foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_logins")).option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/logins").start()
+total_logins = df_eventos.filter(col("tipo_evento") == "login") \
+    .agg(count("*") \
+    .alias("total"))
+    
+query_logins = total_logins.writeStream.outputMode("complete") \
+    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_logins")) \
+    .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/logins") \
+    .start()
+    
 print("Query para 'Total de Logins' iniciada.")
 
-total_carrinhos_criados = df_eventos.filter(col("tipo_evento") == "carrinho_criado").agg(count("*").alias("total"))
-query_criados = total_carrinhos_criados.writeStream.outputMode("complete").foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_carrinhos_criados")).option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/carrinhos_criados").start()
+total_carrinhos_criados = df_eventos.filter(col("tipo_evento") == "carrinho_criado") \
+    .agg(count("*") \
+    .alias("total"))
+    
+query_criados = total_carrinhos_criados.writeStream \
+    .outputMode("complete") \
+    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_carrinhos_criados")) \
+    .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/carrinhos_criados") \
+    .start()
+    
 print("Query para 'Total de Carrinhos Criados' iniciada.")
 
 total_carrinhos_convertidos = df_transacoes.agg(approx_count_distinct("id_carrinho").alias("total"))
-query_convertidos = total_carrinhos_convertidos.writeStream.outputMode("complete").foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_carrinhos_convertidos")).option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/carrinhos_convertidos").start()
+
+query_convertidos = total_carrinhos_convertidos.writeStream \
+    .outputMode("complete") \
+    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_carrinhos_convertidos")) \
+    .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/carrinhos_convertidos") \
+    .start()
+    
 print("Query para 'Total de Carrinhos Convertidos' iniciada.")
 
 # --- Manter a aplicação rodando ---
 print("\nTodas as queries de streaming foram iniciadas. Pressione Ctrl+C para parar.")
 spark.streams.awaitAnyTermination()
-
