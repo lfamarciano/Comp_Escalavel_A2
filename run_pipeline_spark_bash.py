@@ -1,23 +1,25 @@
-# run_pipeline.py
 from pyspark.sql import SparkSession
-from pathlib import Path
+from dotenv import load_dotenv
 
-# Importe suas funções do outro arquivo
+from pathlib import Path
+import os
+
+# Importando todas as funções
 import etl_jobs
 
-# Supondo que db_config.py exista no mesmo nível
-import sys
-db_dir = Path(__file__).resolve().parent / 'db' # equivalente a .\db
-sys.path.append(str(db_dir))
-from db.db_config import DB_CONFIG, DB_NAME
-
+# Impotando db_config com as configurações do db de db_import
 from db_import import DB_CONFIG, DB_NAME
 
 def main():
     """Função principal que orquestra todo o pipeline de ETL."""
     
     # --- 1. CONFIGURAÇÃO E CRIAÇÃO DA SESSÃO SPARK ---
-    jdbc_driver_path = Path("C:/spark/jdbc/postgresql-42.7.7.jar")
+    jdbc_driver_path = os.getenv("JDBC_JAR_PATH")
+    # Se tivermos lido corretamente a variável de ambiente
+    if jdbc_driver_path:
+        jdbc_driver_path = Path(jdbc_driver_path)
+    else: # fallback que segue exemplo no readme
+        jdbc_driver_path = Path("C:/spark/jdbc/postgresql-42.7.7.jar")
 
     if jdbc_driver_path.exists():
         jdbc_driver_path = rf"{jdbc_driver_path}"
