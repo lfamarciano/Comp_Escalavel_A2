@@ -15,6 +15,10 @@ networks:
   kafka-net:
     driver: bridge
 
+volumes:
+  postgres-data:
+    driver: local
+
 services:
   # Serviço 1: Zookeeper - Gerenciador de cluster do Kafka
   zookeeper:
@@ -28,6 +32,23 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+
+  postgres:
+    image: postgres:14-alpine
+    hostname: postgres
+    container_name: postgres_db
+    networks:
+      - kafka-net
+    ports:
+      - "5432:5432"
+    volumes:
+      # Aqui nós USAMOS o volume 'postgres-data' que foi DECLARADO acima
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: ecommerce_db
+    restart: unless-stopped
 
   # Serviço 2: Kafka Broker - O servidor principal de mensagens
   kafka:

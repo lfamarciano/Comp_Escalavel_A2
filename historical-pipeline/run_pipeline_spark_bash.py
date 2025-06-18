@@ -31,7 +31,9 @@ def main():
         .appName("PipelineETL-PostgresParaDelta") \
         .config("spark.jars", jdbc_driver_path) \
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+        .config("spark.jars.packages", "io.delta:delta-spark_2.13:3.2.0") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+        .config("spark.driver.host", "127.0.0.1") \
         .getOrCreate()
 
     jdbc_url = f"jdbc:postgresql://{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_NAME}"
