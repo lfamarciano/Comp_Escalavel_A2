@@ -121,6 +121,23 @@ spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0 seu_scr
 ```
 5. Se tudo foi configurado corretamente, o Spark deverá iniciar sem erros. Parabéns, seu ambiente está pronto!
 
+## Configurando Delta Lake para pipeline de dados históricos
+
+1. Baixe a versão mais recente (42.7.7) do Driver JDBC do PostgreSQL: https://jdbc.postgresql.org/download/ 
+2. Coloque o arquivo em uma pasta fácil de achar (sugestão: `C:\spark\jdbc\postgresql-42.7.7.jar` no Windows)
+3. Adicione o caminho para o arquivo às suas variáveis de ambiente:
+```config
+JDBC_JAR_PATH="C:/spark/jdbc/postgresql-42.7.7.jar" # exemplo colocandona pasta sugerida
+```
+4. Rode comandos do spark com DeltaLake com a seguinte linha (até o momento o arquivo `run_pipeline_spark_batch.py` é o mais atualizado no desenvolvimento do pipeline de métricas históricas):
+```bash
+spark-submit --packages io.delta:delta-spark_2.13:4.0.0 --jars C:\spark\jdbc\postgresql-42.7.7.jar run_pipeline_spark_bash.py
+```
+Essa linha roda os comandos Spark enquanto faz o download da versão compatível do DeltaLake com a versão do Spark utilizada no projeto.
+
+- Obs: No Windows é comum ocorrer o erro: `java.io.IOException: Failed to delete: C:\Users\daniel\AppData\Local\Temp\spark-34a12dad-52f8-4361-a1cc-d76f007d3191\userFiles-0df6c170-3d90-4c6c-8c8b-4660680ee9b3\postgresql-42.7.7.jar` após rodar esses e outros comandos Spark. Não se preocupe, isso não só é normal como não impacta no projeto e o Windows automaticamente deletará esses arquivos quando o computador for reiniciado.
+
+
 # Trabalho A2 de Computação Escalável 
 ## Objetivo
 Criar um pipeline escalável para processamento de dados utilizando os mecanismos apresentados na disciplina.
