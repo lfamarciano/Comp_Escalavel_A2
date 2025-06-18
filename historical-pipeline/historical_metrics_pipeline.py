@@ -2,8 +2,7 @@ from pyspark.sql import SparkSession
 
 from pathlib import Path
 
-from metrics_jobs import calculate_daily_revenue_metrics
-from metrics_jobs import calculate_revenue_growth, most_sold_product_by_quarters
+from metrics_jobs import calculate_daily_revenue_metrics, most_sold_product_by_quarters, abandoned_cart_rate
 
 def main():
     """Função principal que orquestra o cálculo das métricas."""
@@ -24,6 +23,7 @@ def main():
     print("Lendo tabelas da camada Bronze...")
     transacoes_df = spark.read.format("delta").load(str(bronze_base_path / "transacoes_vendas"))
     clientes_df = spark.read.format("delta").load(str(bronze_base_path / "dados_clientes"))
+    eventos_web_df = spark.read.format("delta").load(str(bronze_base_path / "eventos_web"))
 
     # Calculando métrica de crescimento de receita
     print("Calculando crescimento de receita...")
@@ -48,6 +48,13 @@ def main():
     produtos_mais_vendidos_df.show(truncate=False)
 
     print(f"\nMétrica  de produtos mais vendidos por trimestre calculada com sucesso!")
+
+    # Calculando taxa de abandono de carrinho
+    print("Calculando taxa de abandono de carrinho...")
+    taxa_abandono = abandoned_cart_rate(transacoes_df, eventos_web_df)
+
+    print("\nResultado - Taxa de Abandono de Carrinho:")
+    print(f"A taxa de abandono de carrinho é: {taxa_abandono}")
 
     spark.stop()
 

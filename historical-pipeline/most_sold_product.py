@@ -6,12 +6,6 @@ from datetime import datetime
 def most_sold_product_by_quarters(transacoes_df: DataFrame) -> DataFrame:
     """
     Identifica o produto mais vendido em termos de quantidade e receita.
-    
-    1. Filtra transações do último ano completo
-    2. Calcula trimestre a partir da data
-    3. Agrupa vendas por trimestre e produto
-    4. Classifica produtos por vendas em cada trimestre
-    5. Seleciona os top 10 por trimestr
     """
     
     # Determina o último ano completo
@@ -35,7 +29,10 @@ def most_sold_product_by_quarters(transacoes_df: DataFrame) -> DataFrame:
         mes_fim = trimestre * 3
 
         t_inicio = datetime(ano, mes_inicio, 1)
-        t_fim = datetime(ano, mes_fim + 1, 1)
+        if mes_fim == 12:
+            t_fim = datetime(ano + 1, 1, 1)
+        else:
+            t_fim = datetime(ano, mes_fim + 1, 1)
 
         cond = (F.col("data_compra") >= t_inicio) & (F.col("data_compra") < t_fim)
         if filtro is None:
