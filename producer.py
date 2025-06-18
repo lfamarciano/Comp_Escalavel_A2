@@ -7,7 +7,6 @@
 # ACESSE http://localhost:9000 PARA VER A INTEFACE DO Kafdrop
 # PARA PARAR OS CONTEINERES, USE O COMANDO:
 # > docker-compose down
-
 import uuid
 import random
 import json
@@ -105,7 +104,7 @@ def fetch_usuarios_from_db():
             conn.close()
 
     
-def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=False):
+def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     """
     Simula uma jornada completa do cliente, desde o login,
     e envia os eventos correspondentes para o Kafka.
@@ -208,7 +207,18 @@ def worker_producer(worker_id, usuarios, produtos):
     # CADA PROCESSO CRIA SUA PRÓPRIA INSTÂNCIA DO PRODUCER
     producer = KafkaProducer(
         bootstrap_servers=[KAFKA_BROKER_URL],
-        value_serializer=lambda v: json.dumps(v, cls=CustomJSONEncoder).encode('utf-8')
+        value_serializer=lambda v: json.dumps(v, cls=CustomJSONEncoder).encode('utf-8'),
+        
+        # --- PARÂMETROS DE OTIMIZAÇÃO ---
+        
+        # (1) Aumenta o tamanho do lote de mensagens para 64KB. Melhora a compressão e o throughput.
+        batch_size=16384 * 4, 
+        
+        # (2) Espera até 5ms para preencher o lote, mesmo que não esteja cheio. Reduz requisições de rede.
+        linger_ms=5, 
+        
+        # (3) Aumenta o buffer total de memória para 64MB para absorver picos de produção.
+        buffer_memory=67108864 
     )
     
     while True:
