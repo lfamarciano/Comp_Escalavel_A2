@@ -4,8 +4,11 @@ from pyspark.sql.dataframe import DataFrame
 from pathlib import Path
 
 import sys
-db_dir = Path(__file__).resolve().parent / 'db' # equivalente a .\db
-sys.path.append(str(db_dir))
+# db_dir = Path(__file__).resolve().parent.parent / 'db' # equivalente a ..\db
+root_dir = Path(__file__).resolve().parent.parent
+# print(f"db_dir: {db_dir}, {db_dir.exists()}")
+# sys.path.append(str(db_dir))
+sys.path.append(str(root_dir))
 from db.db_config import DB_CONFIG, DB_NAME
 
 # Lendo dados das tabelas

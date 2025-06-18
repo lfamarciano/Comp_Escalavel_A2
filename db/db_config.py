@@ -6,8 +6,6 @@ load_dotenv()
 
 dotenv_dbconfig = os.getenv("DB_CONFIG")
 
-print('yes' if dotenv_dbconfig else 'no')
-
 DB_CONFIG = json.loads(dotenv_dbconfig) if dotenv_dbconfig else {
     'host': 'localhost',
     'user': 'postgres',
