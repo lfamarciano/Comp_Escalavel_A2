@@ -45,6 +45,11 @@ def main():
     print("\nResultado - Produtos Mais Vendidos por Trimestre:")
     produtos_mais_vendidos_df.show(truncate=False)
 
+    # Salvando resultado na camada OURO
+    output_path = gold_base_path / "produtos_mais_vendidos"
+    print(f"\nSalvando resultado final DeltaLake (camada Ouro): {output_path}")
+    receita_diaria_historica_df.write.format("delta").mode("overwrite").save(str(output_path))
+
     print(f"\nMétrica  de produtos mais vendidos por trimestre calculada com sucesso!")
 
     # Calculando taxa de abandono de carrinho
