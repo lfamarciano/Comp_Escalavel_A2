@@ -53,7 +53,7 @@ def most_sold_product_by_quarters(transacoes_df: DataFrame) -> DataFrame:
     vendas_por_trimestre = transacoes_com_trimestre.groupBy(
         "ano", "trimestre", "id_produto"
     ).agg(
-        F.sum("quantidade").alias("total_vendido")
+        F.sum("quantidade_produto").alias("total_vendido")
     )
 
     # Classifica os produtos por trimestre e total vendido e retorna os top 10
