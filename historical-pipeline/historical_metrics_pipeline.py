@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 
 from pathlib import Path
 
-from metrics_jobs import calculate_revenue_growth
+from metrics_jobs import calculate_revenue_growth, most_sold_product_by_quarters
 
 def main():
     """Função principal que orquestra o cálculo das métricas."""
@@ -38,6 +38,16 @@ def main():
     # crescimento_receita_df.write.format("delta").mode("overwrite").save(str(output_path))
     
     print("\nMétrica de crescimento de receita calculada e salva com sucesso!")
+
+    # Calculando métrica de produtos mais vendidos por trimestre no último ano
+    print("Calculando produtos mais vendidos por trimestre no último ano...")
+    produtos_mais_vendidos_df = most_sold_product_by_quarters(transacoes_df)
+
+    print("\nResultado - Produtos Mais Vendidos por Trimestre:")
+    produtos_mais_vendidos_df.show(truncate=False)
+
+    print(f"\nMétrica  de produtos mais vendidos por trimestre calculada com sucesso!")
+
     spark.stop()
 
 if __name__ == "__main__":
