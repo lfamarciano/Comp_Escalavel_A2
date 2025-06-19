@@ -79,7 +79,7 @@ def create_tables():
             """,
             """
             CREATE TABLE IF NOT EXISTS transacoes_vendas (
-                id_transacao UUID PRIMARY KEY,
+                id_transacao SERIAL PRIMARY KEY,
                 id_pedido UUID NOT NULL,
                 id_usuario INTEGER REFERENCES dados_clientes(id_usuario),
                 id_produto INTEGER REFERENCES catalogo_produtos(id_produto),
@@ -93,7 +93,7 @@ def create_tables():
             """,
             """
             CREATE TABLE IF NOT EXISTS eventos_web (
-                id_evento UUID PRIMARY KEY,
+                id_evento SERIAL PRIMARY KEY,
                 id_usuario INTEGER REFERENCES dados_clientes(id_usuario),
                 id_sessao UUID NOT NULL,
                 id_carrinho UUID,

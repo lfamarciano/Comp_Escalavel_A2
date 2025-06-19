@@ -33,7 +33,7 @@ print(f"Acesse a UI do Spark em: http://{spark.conf.get('spark.driver.host')}:40
 
 #  3. Definição dos Schemas 
 schema_transacoes = StructType([
-    StructField("id_transacao", StringType(), True), StructField("id_pedido", StringType(), True),
+    StructField("id_pedido", StringType(), True),
     StructField("id_usuario", IntegerType(), True), StructField("nome_usuario", StringType(), True),
     StructField("id_produto", IntegerType(), True), StructField("categoria", StringType(), True),
     StructField("item", StringType(), True), StructField("valor_total_compra", DoubleType(), True),
@@ -43,7 +43,7 @@ schema_transacoes = StructType([
 ])
 
 schema_eventos = StructType([
-    StructField("id_evento", StringType(), True), StructField("id_usuario", IntegerType(), True),
+    StructField("id_usuario", IntegerType(), True),
     StructField("id_sessao", StringType(), True), StructField("tipo_evento", StringType(), True),
     StructField("id_carrinho", StringType(), True), StructField("id_produto", IntegerType(), True),
     StructField("timestamp_evento", TimestampType(), True),

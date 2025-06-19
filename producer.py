@@ -116,7 +116,6 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     
     # Login
     evento_login = {
-        "id_evento": str(uuid.uuid4()),
         "id_usuario": usuario["id_usuario"],
         "id_sessao": id_sessao,
         "tipo_evento": "login",
@@ -131,7 +130,6 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     for i,_ in enumerate(range(random.randint(1, 4))):
         produto = random.choice(todos_produtos)
         evento_visualizacao = {
-            "id_evento": str(uuid.uuid4()),
             "id_usuario": usuario["id_usuario"],
             "id_sessao": id_sessao,
             "tipo_evento": "visualizacao_produto",
@@ -150,7 +148,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     # Criação do Carrinho
     id_carrinho = str(uuid.uuid4())
     evento_carrinho_criado = {
-        "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
+        "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
         "tipo_evento": "carrinho_criado", "id_carrinho": id_carrinho, "id_produto": None,
         "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(15, 29))
     }
@@ -162,7 +160,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     produtos_no_carrinho = random.sample(todos_produtos, random.randint(1, 4))
     for i, prod in enumerate(produtos_no_carrinho):
         evento_add_carrinho = {
-            "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
+            "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "produto_adicionado_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
             "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(5, 14 - i))
         }
@@ -174,7 +172,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     if random.random() < 0.30:
         if bprint: print("-> Usuário decidiu CONVERTER.")
         evento_checkout = {
-            "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
+            "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "checkout_concluido", "id_carrinho": id_carrinho, "id_produto": None,
             "timestamp_evento": tempo_base_jornada # O checkout acontece no tempo base
         }
@@ -183,7 +181,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
         # Gera as transações
         for prod in produtos_no_carrinho:
             transacao = {
-                "id_transacao": str(uuid.uuid4()), "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
+                "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
                 "nome_usuario": usuario["nome_usuario"], "id_produto": prod["id_produto"], "categoria": prod["categoria"],
                 "item": prod["nome_produto"], "valor_total_compra": prod["preco_unitario"], "quantidade_produto":random.randint(1, 3),
                 "data_compra": evento_checkout["timestamp_evento"],

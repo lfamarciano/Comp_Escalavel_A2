@@ -77,25 +77,25 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
         id_carrinho = uuid.uuid4()
 
         # Evento de Login
-        eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, None, 'login', None, timestamp_jornada - timedelta(minutes=10)))
+        eventos_web.append((id_usuario, id_sessao, None, 'login', None, timestamp_jornada - timedelta(minutes=10)))
 
         # Visualização de produtos
         for _ in range(random.randint(1, 5)):
              produto_visto = random.choice(produtos)
-             eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, None, 'visualizacao_produto', produto_visto[0], timestamp_jornada - timedelta(minutes=random.randint(5, 9))))
+             eventos_web.append((id_usuario, id_sessao, None, 'visualizacao_produto', produto_visto[0], timestamp_jornada - timedelta(minutes=random.randint(5, 9))))
 
         # 85% de não abandonar a sessão
         if random.random() < 0.85:
-            eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, id_carrinho, 'carrinho_criado', None, timestamp_jornada - timedelta(minutes=5)))
+            eventos_web.append((id_usuario, id_sessao, id_carrinho, 'carrinho_criado', None, timestamp_jornada - timedelta(minutes=5)))
             
             # Adiciona produtos ao carrinho
             produtos_no_carrinho = random.sample(produtos, k=random.randint(1, 3))
             for produto_no_carrinho in produtos_no_carrinho:
-                eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, id_carrinho, 'produto_adicionado_carrinho', produto_no_carrinho[0], timestamp_jornada - timedelta(minutes=random.randint(2, 4))))
+                eventos_web.append((id_usuario, id_sessao, id_carrinho, 'produto_adicionado_carrinho', produto_no_carrinho[0], timestamp_jornada - timedelta(minutes=random.randint(2, 4))))
 
             # 30% de chance de comprar
             if random.random() < 0.30:
-                eventos_web.append((uuid.uuid4(), id_usuario, id_sessao, id_carrinho, 'checkout_concluido', None, timestamp_jornada))
+                eventos_web.append((id_usuario, id_sessao, id_carrinho, 'checkout_concluido', None, timestamp_jornada))
                 
                 # Gera as transações para cada item no carrinho
                 id_pedido = uuid.uuid4()
@@ -105,7 +105,7 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
                     quantidade = 1 # Simplificando para quantidade 1
                     
                     transacoes_vendas.append((
-                        uuid.uuid4(), id_pedido, id_usuario, id_produto, quantidade, preco_unitario * quantidade,
+                        id_pedido, id_usuario, id_produto, quantidade, preco_unitario * quantidade,
                         timestamp_jornada, random.choice(["cartao_credito", "boleto", "pix"]),
                         random.choice(["entregue", "enviado"]), id_carrinho
                     ))
@@ -113,7 +113,7 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
     # Inserir todos os eventos e transações gerados no banco de dados
     psycopg2.extras.execute_values(
         cursor,
-        "INSERT INTO eventos_web (id_evento, id_usuario, id_sessao, id_carrinho, tipo_evento, id_produto, timestamp_evento) VALUES %s",
+        "INSERT INTO eventos_web (id_usuario, id_sessao, id_carrinho, tipo_evento, id_produto, timestamp_evento) VALUES %s",
         eventos_web
     )
 
@@ -121,7 +121,7 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
     if transacoes_vendas:
         psycopg2.extras.execute_values(
             cursor,
-            "INSERT INTO transacoes_vendas (id_transacao, id_pedido, id_usuario, id_produto, quantidade_produto, valor_total_compra, data_compra, metodo_pagamento, status_pedido, id_carrinho) VALUES %s",
+            "INSERT INTO transacoes_vendas (id_pedido, id_usuario, id_produto, quantidade_produto, valor_total_compra, data_compra, metodo_pagamento, status_pedido, id_carrinho) VALUES %s",
             transacoes_vendas
         )
 

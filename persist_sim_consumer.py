@@ -28,13 +28,13 @@ def process_batch(cursor, transacoes_batch, eventos_batch):
                 cursor,
                 """
                 INSERT INTO transacoes_vendas (
-                    id_transacao, id_pedido, id_usuario, id_produto, quantidade_produto,
+                    id_pedido, id_usuario, id_produto, quantidade_produto,
                     valor_total_compra, data_compra, metodo_pagamento,
                     status_pedido, id_carrinho
                 ) VALUES %s
                 """,
                 # Prepara a lista de tuplas com os dados na ordem correta
-                [(d.get('id_transacao'), d.get('id_pedido'), d.get('id_usuario'), d.get('id_produto'),
+                [(d.get('id_pedido'), d.get('id_usuario'), d.get('id_produto'),
                   d.get('quantidade_produto'), d.get('valor_total_compra'), d.get('data_compra'),
                   d.get('metodo_pagamento'), d.get('status_pedido'), d.get('id_carrinho'))
                  for d in transacoes_batch]
@@ -46,11 +46,11 @@ def process_batch(cursor, transacoes_batch, eventos_batch):
                 cursor,
                 """
                 INSERT INTO eventos_web (
-                    id_evento, id_usuario, id_sessao, id_carrinho,
+                    id_usuario, id_sessao, id_carrinho,
                     tipo_evento, id_produto, timestamp_evento
                 ) VALUES %s
                 """,
-                [(d.get('id_evento'), d.get('id_usuario'), d.get('id_sessao'), d.get('id_carrinho'),
+                [(d.get('id_usuario'), d.get('id_sessao'), d.get('id_carrinho'),
                   d.get('tipo_evento'), d.get('id_produto'), d.get('timestamp_evento'))
                  for d in eventos_batch]
             )
