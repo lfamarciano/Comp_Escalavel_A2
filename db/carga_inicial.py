@@ -5,6 +5,7 @@ from faker_commerce import Provider
 import random
 from datetime import timedelta
 from create_db import DB_CONFIG
+import uuid
 
 fake = Faker('pt_BR')
 fake.add_provider(Provider)
@@ -72,8 +73,8 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
         timestamp_jornada = fake.date_time_between(start_date=data_cadastro_cliente, end_date='now')
 
         # Simula a jornada
-        id_sessao = fake.uuid4()
-        id_carrinho = fake.uuid4()[:20]
+        id_sessao = uuid.uuid4()
+        id_carrinho = uuid.uuid4()
 
         # Evento de Login
         eventos_web.append((id_usuario, id_sessao, None, 'login', None, timestamp_jornada - timedelta(minutes=10)))
@@ -97,7 +98,7 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
                 eventos_web.append((id_usuario, id_sessao, id_carrinho, 'checkout_concluido', None, timestamp_jornada))
                 
                 # Gera as transações para cada item no carrinho
-                id_pedido = fake.uuid4()[:20]
+                id_pedido = uuid.uuid4()
                 for produto_comprado in produtos_no_carrinho:
                     id_produto = produto_comprado[0]
                     preco_unitario = produto_comprado[1]
@@ -116,12 +117,14 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
         eventos_web
     )
 
-    
-    psycopg2.extras.execute_values(
-        cursor,
-        "INSERT INTO transacoes_vendas (id_pedido, id_usuario, id_produto, quantidade_produto, valor_total_compra, data_compra, metodo_pagamento, status_pedido, id_carrinho) VALUES %s",
-        transacoes_vendas
-    )
+
+    if transacoes_vendas:
+        psycopg2.extras.execute_values(
+            cursor,
+            "INSERT INTO transacoes_vendas (id_pedido, id_usuario, id_produto, quantidade_produto, valor_total_compra, data_compra, metodo_pagamento, status_pedido, id_carrinho) VALUES %s",
+            transacoes_vendas
+        )
+
     
     print(f"Total de {len(eventos_web)} eventos web e {len(transacoes_vendas)} transações gerados.")
 
@@ -131,6 +134,8 @@ def main():
     conn = None
     try:
         conn = psycopg2.connect(**DB_CONFIG)
+        psycopg2.extras.register_uuid()
+        
         with conn.cursor() as cursor:
             limpar_dados(cursor)
             

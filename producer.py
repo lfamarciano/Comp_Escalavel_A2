@@ -7,6 +7,7 @@
 # ACESSE http://localhost:9000 PARA VER A INTEFACE DO Kafdrop
 # PARA PARAR OS CONTEINERES, USE O COMANDO:
 # > docker-compose down
+
 import uuid
 import random
 import json
@@ -26,11 +27,11 @@ fake = Faker()
 # fake.add_provider(Provider)
 
 # Configuração do Produtor Kafka 
-KAFKA_BROKER_URL = 'localhost:9092' # URL do broker Kafka
+KAFKA_BROKER_URL = 'localhost:9092'
 TRANSACTIONS_TOPIC = 'transacoes_vendas'
 WEB_EVENTS_TOPIC = 'eventos_web'
 
-# Classe para ensinar a biblioteca JSON a converter o tipo Decimal
+# Classe para ensinar a biblioteca JSON a converter o tipo Decimal e datetime
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         # Se o objeto for do tipo Decimal, converte para float
@@ -53,7 +54,6 @@ def fetch_produtos_from_db():
     conn = None
     try:
         conn = psycopg2.connect(**DB_CONFIG)
-        # Usar o DictCursor faz com que o resultado já venha como uma lista de dicionários
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # Seleciona as colunas necessárias para a simulação
@@ -61,7 +61,7 @@ def fetch_produtos_from_db():
         
         produtos = cursor.fetchall()
         
-        # Converte os resultados do cursor (que são como dicionários) para dicionários padrão
+        # Converte os resultados do cursor que são como dicionários para dicionários padrão
         produtos_lista = [dict(row) for row in produtos]
         
         print(f"-> {len(produtos_lista)} produtos encontrados no banco de dados.")
@@ -90,7 +90,6 @@ def fetch_usuarios_from_db():
         
         usuarios = cursor.fetchall()
         
-        # Converte os resultados para uma lista de dicionários padrão
         usuarios_lista = [dict(row) for row in usuarios]
 
         print(f"-> {len(usuarios_lista)} usuários encontrados no banco de dados.")
@@ -117,7 +116,6 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     
     # Login
     evento_login = {
-        "id_evento": str(uuid.uuid4()),
         "id_usuario": usuario["id_usuario"],
         "id_sessao": id_sessao,
         "tipo_evento": "login",
@@ -132,7 +130,6 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     for i,_ in enumerate(range(random.randint(1, 4))):
         produto = random.choice(todos_produtos)
         evento_visualizacao = {
-            "id_evento": str(uuid.uuid4()),
             "id_usuario": usuario["id_usuario"],
             "id_sessao": id_sessao,
             "tipo_evento": "visualizacao_produto",
@@ -151,7 +148,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     # Criação do Carrinho
     id_carrinho = str(uuid.uuid4())
     evento_carrinho_criado = {
-        "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
+        "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
         "tipo_evento": "carrinho_criado", "id_carrinho": id_carrinho, "id_produto": None,
         "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(15, 29))
     }
@@ -163,7 +160,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     produtos_no_carrinho = random.sample(todos_produtos, random.randint(1, 4))
     for i, prod in enumerate(produtos_no_carrinho):
         evento_add_carrinho = {
-            "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
+            "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "produto_adicionado_carrinho", "id_carrinho": id_carrinho, "id_produto": prod["id_produto"],
             "timestamp_evento": tempo_base_jornada - timedelta(seconds=random.randint(5, 14 - i))
         }
@@ -175,7 +172,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
     if random.random() < 0.30:
         if bprint: print("-> Usuário decidiu CONVERTER.")
         evento_checkout = {
-            "id_evento": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
+            "id_usuario": usuario["id_usuario"], "id_sessao": id_sessao,
             "tipo_evento": "checkout_concluido", "id_carrinho": id_carrinho, "id_produto": None,
             "timestamp_evento": tempo_base_jornada # O checkout acontece no tempo base
         }
@@ -184,7 +181,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
         # Gera as transações
         for prod in produtos_no_carrinho:
             transacao = {
-                "id_transacao": str(uuid.uuid4()), "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
+                "id_pedido": str(uuid.uuid4()), "id_usuario": usuario["id_usuario"],
                 "nome_usuario": usuario["nome_usuario"], "id_produto": prod["id_produto"], "categoria": prod["categoria"],
                 "item": prod["nome_produto"], "valor_total_compra": prod["preco_unitario"], "quantidade_produto":random.randint(1, 3),
                 "data_compra": evento_checkout["timestamp_evento"],
@@ -201,23 +198,20 @@ def worker_producer(worker_id, usuarios, produtos):
     """
     Esta é a função que cada processo irá executar de forma independente.
     """
-    # Usamos o PID (Process ID) para ver que os processos são realmente diferentes
     print(f"[Worker-{worker_id} PID:{os.getpid()}] Iniciando...")
 
     # CADA PROCESSO CRIA SUA PRÓPRIA INSTÂNCIA DO PRODUCER
     producer = KafkaProducer(
         bootstrap_servers=[KAFKA_BROKER_URL],
         value_serializer=lambda v: json.dumps(v, cls=CustomJSONEncoder).encode('utf-8'),
-        
-        # --- PARÂMETROS DE OTIMIZAÇÃO ---
-        
-        # (1) Aumenta o tamanho do lote de mensagens para 64KB. Melhora a compressão e o throughput.
+        # Configurações de performance do Kafka Producer
+        # Aumenta o tamanho do lote de mensagens para 64KB.
         batch_size=16384 * 4, 
         
-        # (2) Espera até 5ms para preencher o lote, mesmo que não esteja cheio. Reduz requisições de rede.
+        # Espera até 5ms para preencher o lote, mesmo que não esteja cheio. Reduz requisições de rede.
         linger_ms=5, 
         
-        # (3) Aumenta o buffer total de memória para 64MB para absorver picos de produção.
+        # Aumenta o buffer total de memória para 64MB para absorver picos de produção.
         buffer_memory=67108864 
     )
     
@@ -226,7 +220,7 @@ def worker_producer(worker_id, usuarios, produtos):
             usuario_selecionado = random.choice(usuarios)
             simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=True)
             producer.flush()
-            time.sleep(random.uniform(0.5, 2.0)) # Cada worker tem seu próprio ritmo
+            time.sleep(random.uniform(0.5, 2.0))
         except Exception as e:
             print(f"[Worker-{worker_id} PID:{os.getpid()}] Erro: {e}")
             time.sleep(5)
@@ -234,7 +228,7 @@ def worker_producer(worker_id, usuarios, produtos):
 # Orquestrador Principal
 if __name__ == "__main__":    
     # Define quantos produtores paralelos você quer rodar
-    NUM_PROCESSES = 1 
+    NUM_PROCESSES = 4
 
     # Busca os dados do DB uma única vez no processo principal
     usuarios_db = fetch_usuarios_from_db()
@@ -246,15 +240,15 @@ if __name__ == "__main__":
         processes = []
         print(f"\nIniciando {NUM_PROCESSES} processos produtores...")
 
-        # Cria e inicia cada processo trabalhador
+        # Cria e inicia cada worker
         for i in range(NUM_PROCESSES):
             process = multiprocessing.Process(
                 target=worker_producer,
-                args=(i + 1, usuarios_db, produtos_db) # Passa os dados para o worker
+                args=(i + 1, usuarios_db, produtos_db)
             )
             processes.append(process)
             process.start()
         
-        # Espera que os processos terminem (neste caso, nunca, a menos que sejam interrompidos)
+        # Espera que os processos terminem
         for process in processes:
             process.join()

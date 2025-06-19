@@ -16,10 +16,10 @@ from pyspark.sql.functions import from_json, col, sum as _sum, count, approx_cou
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
 
 
-# --- 1. CONFIGURAÇÃO PARA WINDOWS ---
+#  1. CONFIGURAÇÃO PARA WINDOWS
 os.environ['HADOOP_HOME'] = 'C:\\hadoop'
 
-# --- 2. Configuração da Sessão Spark ---
+#  2. Configuração do Spark 
 spark = (
     SparkSession.builder.appName("EcommerceConsumerIncrementalDebug")
     .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0")
@@ -31,9 +31,9 @@ spark.sparkContext.setLogLevel("WARN")
 print("Sessão Spark iniciada.")
 print(f"Acesse a UI do Spark em: http://{spark.conf.get('spark.driver.host')}:4040")
 
-# --- 3. Definição dos Schemas ---
+#  3. Definição dos Schemas 
 schema_transacoes = StructType([
-    StructField("id_transacao", StringType(), True), StructField("id_pedido", StringType(), True),
+    StructField("id_pedido", StringType(), True),
     StructField("id_usuario", IntegerType(), True), StructField("nome_usuario", StringType(), True),
     StructField("id_produto", IntegerType(), True), StructField("categoria", StringType(), True),
     StructField("item", StringType(), True), StructField("valor_total_compra", DoubleType(), True),
@@ -41,17 +41,19 @@ schema_transacoes = StructType([
     StructField("metodo_pagamento", StringType(), True), StructField("status_pedido", StringType(), True),
     StructField("id_carrinho", StringType(), True)
 ])
+
 schema_eventos = StructType([
-    StructField("id_evento", StringType(), True), StructField("id_usuario", IntegerType(), True),
+    StructField("id_usuario", IntegerType(), True),
     StructField("id_sessao", StringType(), True), StructField("tipo_evento", StringType(), True),
     StructField("id_carrinho", StringType(), True), StructField("id_produto", IntegerType(), True),
     StructField("timestamp_evento", TimestampType(), True),
 ])
 
-# --- 4. Leitura e Parsing dos Streams ---
+#  4. Leitura e Parsing dos Streams 
 KAFKA_BROKER_URL = "localhost:9092"
 CHECKPOINT_BASE_PATH = "C:/tmp/spark_checkpoints"
 
+# Se inscreve nos tópicos do Kafka e lê os dados
 df_transacoes_raw = spark.readStream.format("kafka") \
     .option("kafka.bootstrap.servers", KAFKA_BROKER_URL) \
     .option("subscribe", "transacoes_vendas").option("startingOffsets", "latest") \
@@ -73,7 +75,7 @@ df_eventos = df_eventos_raw.select(from_json(col("value") \
 
 print("Streams do Kafka sendo lidos e parseados.")
 
-# --- 5. Lógica de Escrita no Redis ---
+#  5. Lógica de Escrita no Redis 
 def write_to_redis(df, metric_name):
     """Escreve um DataFrame de um micro-lote no Redis usando Pandas."""
     if not df.isEmpty():
@@ -93,7 +95,7 @@ def write_to_redis(df, metric_name):
             print(f"ERRO ao escrever no Redis para a métrica '{metric_name}': {e}")
 
 
-# --- 6. Cálculo das Métricas e Início das Queries ---
+#  6. Cálculo das Métricas e Início das Queries 
 # === Query 1: Métricas Globais (Receita, Pedidos, Ticket Médio) ===
 metricas_globais = df_transacoes.agg(
     _sum("valor_total_compra").alias("receita_total_global"),
@@ -171,6 +173,6 @@ query_convertidos = total_carrinhos_convertidos.writeStream \
     
 print("Query para 'Total de Carrinhos Convertidos' iniciada.")
 
-# --- Manter a aplicação rodando ---
+#  Manter a aplicação rodando 
 print("\nTodas as queries de streaming foram iniciadas. Pressione Ctrl+C para parar.")
 spark.streams.awaitAnyTermination()

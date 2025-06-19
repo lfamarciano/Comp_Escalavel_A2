@@ -129,9 +129,9 @@ spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0 seu_scr
 ```config
 JDBC_JAR_PATH="C:/spark/jdbc/postgresql-42.7.7.jar" # exemplo colocandona pasta sugerida
 ```
-4. Rode comandos do spark com DeltaLake com a seguinte linha (até o momento o arquivo `run_pipeline_spark_batch.py` é o mais atualizado no desenvolvimento do pipeline de métricas históricas):
+4. Rode comandos do spark com DeltaLake com a seguinte linha (até o momento o arquivo `run_pipeline_bronze_phase.py` é o mais atualizado no desenvolvimento do pipeline de métricas históricas):
 ```bash
-spark-submit --packages io.delta:delta-spark_2.13:4.0.0 --jars C:\spark\jdbc\postgresql-42.7.7.jar run_pipeline_spark_bash.py
+spark-submit --packages io.delta:delta-spark_2.13:4.0.0 --jars C:\spark\jdbc\postgresql-42.7.7.jar historical-pipeline\run_pipeline_bronze_phase.py
 ```
 Essa linha roda os comandos Spark enquanto faz o download da versão compatível do DeltaLake com a versão do Spark utilizada no projeto.
 

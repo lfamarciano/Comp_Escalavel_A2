@@ -50,7 +50,7 @@ services:
       POSTGRES_DB: ecommerce_db
     restart: unless-stopped
 
-  # Serviço 2: Kafka Broker - O servidor principal de mensagens
+  # Serviço 2: Kafka Broker
   kafka:
     image: confluentinc/cp-kafka:7.3.2
     hostname: kafka
@@ -96,5 +96,5 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - kafka-net # Use a mesma rede do Kafka
+      - kafka-net
 
