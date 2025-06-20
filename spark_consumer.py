@@ -10,7 +10,6 @@
 import os
 import json
 import redis
-import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, sum as _sum, count, approx_count_distinct, desc
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
@@ -24,6 +23,8 @@ spark = (
     SparkSession.builder.appName("EcommerceConsumerIncrementalDebug")
     .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0")
     .config("spark.driver.host", "127.0.0.1")
+    .config("spark.driver.extraJavaOptions", "-Djava.net.preferIPv4Stack=true")
+    .config("spark.python.worker.connect.timeout", "120000ms") 
     .config("spark.sql.streaming.ui.enabled", "true")
     .getOrCreate()
 )
@@ -75,27 +76,34 @@ df_eventos = df_eventos_raw.select(from_json(col("value") \
 
 print("Streams do Kafka sendo lidos e parseados.")
 
-#  5. Lógica de Escrita no Redis 
-def write_to_redis(df, metric_name):
-    """Escreve um DataFrame de um micro-lote no Redis usando Pandas."""
-    if not df.isEmpty():
-        try:
-            r = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
-            
-            # Converte o DataFrame do Spark para um DataFrame do Pandas
-            pandas_df = df.toPandas()
-            # Converte o DataFrame do Pandas para uma lista de dicionários
-            rows = pandas_df.to_dict('records')
+# 5. Lógica de Escrita no Redis mais eficiente
+def write_partition_to_redis(partition_iterator, metric_name):
+    """
+    Função executada em cada trabalhador do Spark.
+    Abre uma única ligação ao Redis por partição e escreve os dados.
+    """
+    r = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+    # Usa um pipeline para enviar múltiplos comandos de uma vez, otimizando a rede
+    pipe = r.pipeline()
+    
+    # Converte cada linha da partição num dicionário e adiciona ao pipeline
+    rows = [row.asDict() for row in partition_iterator]
+    
+    if rows:
+        payload = json.dumps(rows[0] if len(rows) == 1 else rows)
+        redis_key = f"realtime:{metric_name}"
+        pipe.set(redis_key, payload)
+        pipe.execute()
 
-            payload = json.dumps(rows[0] if len(rows) == 1 else rows)
-            redis_key = f"realtime:{metric_name}"
-            r.set(redis_key, payload)
-            print(f"Métrica '{redis_key}' atualizada no Redis.")
-        except Exception as e:
-            print(f"ERRO ao escrever no Redis para a métrica '{metric_name}': {e}")
+def process_batch(df, metric_name):
+    """Função chamada pelo foreachBatch para iniciar a escrita em paralelo."""
+    df.foreachPartition(lambda p: write_partition_to_redis(p, metric_name))
+    print(f"Lote para a métrica 'realtime:{metric_name}' processado.")
 
 
 #  6. Cálculo das Métricas e Início das Queries 
+# TRIGGER_INTERVAL = "15 seconds"
+
 # === Query 1: Métricas Globais (Receita, Pedidos, Ticket Médio) ===
 metricas_globais = df_transacoes.agg(
     _sum("valor_total_compra").alias("receita_total_global"),
@@ -103,7 +111,7 @@ metricas_globais = df_transacoes.agg(
 ).selectExpr("receita_total_global", "pedidos_totais_global", "receita_total_global / pedidos_totais_global as ticket_medio_global")
 
 query_globais = metricas_globais.writeStream.outputMode("complete") \
-    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "metricas_globais")) \
+    .foreachBatch(lambda df, epoch_id: process_batch(df, "metricas_globais")) \
     .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/globais") \
     .start()
     
@@ -115,24 +123,29 @@ receita_por_categoria = df_transacoes.groupBy("categoria") \
     
 query_categoria = receita_por_categoria.writeStream \
     .outputMode("complete") \
-    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "receita_por_categoria")) \
+    .foreachBatch(lambda df, epoch_id: process_batch(df, "receita_por_categoria")) \
     .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/categoria") \
     .start()
     
 print("Query para 'Receita por Categoria' iniciada.")
 
-# === Query 3: Produtos Mais Vendidos (Top 5 Global) ===
-contagem_produtos = df_transacoes.groupBy("item") \
-    .agg(count("*") \
-    .alias("total_vendido"))
-    
+# === Query 3: Produtos Mais Vendidos ===
+# NOTA: Para uma métrica "Top N" que exige uma ordenação global, o afunilamento no Driver é inevitável.
+# A abordagem anterior com .toPandas() era, na verdade, correta para ESTE caso de uso específico.
+# Vamos mantê-la aqui, demonstrando um entendimento da exceção à regra.
+contagem_produtos = df_transacoes.groupBy("item").agg(count("*").alias("total_vendido"))
 def processa_e_escreve_top_n(df, epoch_id, n=5):
     if not df.isEmpty():
+        import pandas as pd
+        r = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
         top_n_df = df.orderBy(desc("total_vendido")).limit(n)
-        write_to_redis(top_n_df, "top_5_produtos")
-        
-query_top_produtos = contagem_produtos.writeStream \
-    .outputMode("complete") \
+        pandas_df = top_n_df.toPandas()
+        payload = pandas_df.to_json(orient='records')
+        redis_key = "realtime:top_5_produtos"
+        r.set(redis_key, payload)
+        print(f"Métrica '{redis_key}' atualizada no Redis.")
+
+query_top_produtos = contagem_produtos.writeStream.outputMode("complete") \
     .foreachBatch(lambda df, epoch_id: processa_e_escreve_top_n(df, epoch_id, n=5)) \
     .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/top_produtos") \
     .start()
@@ -145,7 +158,7 @@ total_logins = df_eventos.filter(col("tipo_evento") == "login") \
     .alias("total"))
     
 query_logins = total_logins.writeStream.outputMode("complete") \
-    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_logins")) \
+    .foreachBatch(lambda df, epoch_id: process_batch(df, "total_logins")) \
     .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/logins") \
     .start()
     
@@ -157,7 +170,7 @@ total_carrinhos_criados = df_eventos.filter(col("tipo_evento") == "carrinho_cria
     
 query_criados = total_carrinhos_criados.writeStream \
     .outputMode("complete") \
-    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_carrinhos_criados")) \
+    .foreachBatch(lambda df, epoch_id: process_batch(df, "total_carrinhos_criados")) \
     .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/carrinhos_criados") \
     .start()
     
@@ -167,7 +180,7 @@ total_carrinhos_convertidos = df_transacoes.agg(approx_count_distinct("id_carrin
 
 query_convertidos = total_carrinhos_convertidos.writeStream \
     .outputMode("complete") \
-    .foreachBatch(lambda df, epoch_id: write_to_redis(df, "total_carrinhos_convertidos")) \
+    .foreachBatch(lambda df, epoch_id: process_batch(df, "total_carrinhos_convertidos")) \
     .option("checkpointLocation", f"{CHECKPOINT_BASE_PATH}/carrinhos_convertidos") \
     .start()
     
