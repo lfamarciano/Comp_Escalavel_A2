@@ -24,7 +24,7 @@ def main():
     clientes_df = spark.read.format("delta").load(str(bronze_base_path / "dados_clientes"))
     eventos_web_df = spark.read.format("delta").load(str(bronze_base_path / "eventos_web"))
 
-    # Calculando métrica de crescimento de receita
+    # -- Métrica de crescimento de receita --
     print("Calculando crescimento de receita...")
     receita_diaria_historica_df = calculate_daily_revenue_metrics(transacoes_df, clientes_df)
     
