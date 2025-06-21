@@ -6,8 +6,10 @@ load_dotenv()
 
 dotenv_dbconfig = os.getenv("DB_CONFIG")
 
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+
 DB_CONFIG = json.loads(dotenv_dbconfig) if dotenv_dbconfig else {
-    'host': 'localhost',
+    'host': DB_HOST,
     'user': 'postgres',
     'password': '123',
     'port': '5432',
