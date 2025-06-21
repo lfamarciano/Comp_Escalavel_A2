@@ -21,14 +21,11 @@ from kafka import KafkaProducer
 import psycopg2
 import psycopg2.extras
 from db.db_config import DB_CONFIG
+from config import KAFKA_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
 
 fake = Faker()
 # fake.add_provider(Provider)
 
-# Configuração do Produtor Kafka 
-KAFKA_BROKER_URL = 'localhost:9092'
-TRANSACTIONS_TOPIC = 'transacoes_vendas'
-WEB_EVENTS_TOPIC = 'eventos_web'
 
 # Classe para ensinar a biblioteca JSON a converter o tipo Decimal e datetime
 class CustomJSONEncoder(json.JSONEncoder):
@@ -200,7 +197,7 @@ def worker_producer(worker_id, usuarios, produtos, bprint=False):
 
     # CADA PROCESSO CRIA SUA PRÓPRIA INSTÂNCIA DO PRODUCER
     producer = KafkaProducer(
-        bootstrap_servers=[KAFKA_BROKER_URL],
+        bootstrap_servers=[KAFKA_HOST],
         value_serializer=lambda v: json.dumps(v, cls=CustomJSONEncoder).encode('utf-8'),
         # Configurações de performance do Kafka Producer
         # Aumenta o tamanho do lote de mensagens para 64KB.

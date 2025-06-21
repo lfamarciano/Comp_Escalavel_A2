@@ -328,15 +328,6 @@ wheels = [
 ]
 
 [[package]]
-name = "kafka"
-version = "1.3.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3b/1b/44605e699e0970a2be3d7135d185f95e8605399aa0f2a9d64de342eae4b7/kafka-1.3.5.tar.gz", hash = "sha256:ffb3348cd918c31344b1a2eb61f692cbc423c83b1b06466a86de3db8a3f6a018", size = 227516, upload_time = "2017-10-07T23:53:16.826Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/71/73286e748ac5045b6a669c2fe44b03ac4c5d3d2af9291c4c6fc76438a9a9/kafka-1.3.5-py2.py3-none-any.whl", hash = "sha256:35a49e9a432f6792aad48b2ab09d03867357aaa06eacba2678b7fd0808156e5c", size = 207188, upload_time = "2017-10-07T23:53:13.325Z" },
-]
-
-[[package]]
 name = "kafka-python"
 version = "2.2.11"
 source = { registry = "https://pypi.org/simple" }

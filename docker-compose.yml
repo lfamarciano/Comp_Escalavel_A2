@@ -32,22 +32,25 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-
+    
   postgres:
     image: postgres:14-alpine
-    hostname: postgres
     container_name: postgres_db
     networks:
       - kafka-net
     ports:
       - "5432:5432"
     volumes:
-      # Aqui nós USAMOS o volume 'postgres-data' que foi DECLARADO acima
       - postgres-data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
       POSTGRES_DB: ecommerce_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ecommerce_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   # Serviço 2: Kafka Broker
@@ -73,21 +76,26 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_NUM_PARTITIONS: 4
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Serviço 3: Kafdrop - Interface Web para visualizar os tópicos e mensagens
-  kafdrop:
-    image: obsidiandynamics/kafdrop:latest
-    hostname: kafdrop
-    container_name: kafdrop
-    networks:
-      - kafka-net
-    ports:
-      # Acesse a interface no seu navegador em http://localhost:9000
-      - "9000:9000"
-    depends_on:
-      - kafka
-    environment:
-      KAFKA_BROKERCONNECT: "kafka:29092"
+  # # Serviço 3: Kafdrop - Interface Web para visualizar os tópicos e mensagens
+  # kafdrop:
+  #   image: obsidiandynamics/kafdrop:latest
+  #   hostname: kafdrop
+  #   container_name: kafdrop
+  #   networks:
+  #     - kafka-net
+  #   ports:
+  #     # Acesse a interface no seu navegador em http://localhost:9000
+  #     - "9000:9000"
+  #   depends_on:
+  #     - kafka
+  #   environment:
+  #     KAFKA_BROKERCONNECT: "kafka:29092"
   
   # Serviço 4: Redis - armazenamento em memória para atingir alta performance
   redis:
@@ -97,16 +105,38 @@ services:
       - "6379:6379"
     networks:
       - kafka-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile 
+    networks:
+      - kafka-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+    command: >
+      sh -c "python db/create_db.py && python db/carga_inicial.py"
 
   producer:
     build:
-      # Diz ao Compose para construir a imagem a partir do Dockerfile na pasta atual
       context: .
       dockerfile: Dockerfile
     networks:
       - kafka-net
-    # O produtor precisa de esperar que o Kafka esteja pronto
     depends_on:
-      - kafka
-    # Configuração para que o contentor reinicie se falhar
+      kafka:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:29092
     restart: on-failure
