@@ -72,7 +72,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      KAFKA_NUM_PARTITIONS: 2
+      KAFKA_NUM_PARTITIONS: 4
 
   # Serviço 3: Kafdrop - Interface Web para visualizar os tópicos e mensagens
   kafdrop:
@@ -98,3 +98,15 @@ services:
     networks:
       - kafka-net
 
+  producer:
+    build:
+      # Diz ao Compose para construir a imagem a partir do Dockerfile na pasta atual
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - kafka-net
+    # O produtor precisa de esperar que o Kafka esteja pronto
+    depends_on:
+      - kafka
+    # Configuração para que o contentor reinicie se falhar
+    restart: on-failure

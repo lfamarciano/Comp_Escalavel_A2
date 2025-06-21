@@ -15,7 +15,6 @@ from decimal import Decimal
 import time
 from datetime import datetime, timedelta
 import os
-import multiprocessing
 from faker import Faker
 # from faker_commerce import Provider
 from kafka import KafkaProducer
@@ -41,7 +40,6 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super(CustomJSONEncoder, self).default(obj)
-
 
 
 # Funções para buscar dados do PostgreSQL
@@ -194,7 +192,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
         print("[FIM DA JORNADA] Usuário ABANDONOU o carrinho.") if bprint else None
         
 # Função do Worker
-def worker_producer(worker_id, usuarios, produtos):
+def worker_producer(worker_id, usuarios, produtos, bprint=False):
     """
     Esta é a função que cada processo irá executar de forma independente.
     """
@@ -218,7 +216,7 @@ def worker_producer(worker_id, usuarios, produtos):
     while True:
         try:
             usuario_selecionado = random.choice(usuarios)
-            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=True)
+            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=bprint)
             producer.flush()
             time.sleep(random.uniform(0.5, 2.0))
         except Exception as e:
@@ -226,29 +224,18 @@ def worker_producer(worker_id, usuarios, produtos):
             time.sleep(5)
             
 # Orquestrador Principal
-if __name__ == "__main__":    
-    # Define quantos produtores paralelos você quer rodar
-    NUM_PROCESSES = 1
-
-    # Busca os dados do DB uma única vez no processo principal
+if __name__ == "__main__":
+    # O script executa como um único processo
+    # E a escalabilidade é atigida ao rodar este script em múltiplas máquinas ou contentores.
+    
+    print("Buscando dados iniciais...")
     usuarios_db = fetch_usuarios_from_db()
     produtos_db = fetch_produtos_from_db()
 
     if not usuarios_db or not produtos_db:
-        print("ERRO FATAL: Não foi possível carregar dados do banco de dados. Abortando.")
+        print("ERRO FATAL: Não foi possível carregar dados.")
     else:
-        processes = []
-        print(f"\nIniciando {NUM_PROCESSES} processos produtores...")
+        # Apenas um ID de trabalhador, pois é um processo único
+        # A lógica do loop infinito agora está aqui
+        worker_producer(1, usuarios_db, produtos_db, bprint=True) 
 
-        # Cria e inicia cada worker
-        for i in range(NUM_PROCESSES):
-            process = multiprocessing.Process(
-                target=worker_producer,
-                args=(i + 1, usuarios_db, produtos_db)
-            )
-            processes.append(process)
-            process.start()
-        
-        # Espera que os processos terminem
-        for process in processes:
-            process.join()
