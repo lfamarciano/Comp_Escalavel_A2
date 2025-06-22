@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 import psycopg2
 
+from db.db_config import DB_CONFIG
+
 # Configurações da página
 st.set_page_config(
     page_title="Dashboard de E-commerce | Live + Histórico",
@@ -73,11 +75,7 @@ def get_redis_connection():
 def get_postgres_connection():
     try:
         conn = psycopg2.connect(
-            host="localhost",
-            database="ecommerce_db",
-            user="postgres",
-            password="123",
-            port="5432"
+            **DB_CONFIG
         )
         return conn
     except Exception as e:
