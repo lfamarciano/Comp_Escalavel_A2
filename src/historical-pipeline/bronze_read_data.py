@@ -12,7 +12,7 @@ sys.path.append(str(root_dir))
 from db.db_config import DB_CONFIG, DB_NAME
 
 # Lendo dados das tabelas
-def read_from_postgres_with_partition(spark: SparkSession, jdbc_url: str, db_properties: dict, table_name: str, partition_column: str) -> DataFrame:
+def read_from_postgres_with_partition(spark: SparkSession, jdbc_url: str, db_properties: dict, table_name: str, partition_column: str, num_partitions: int) -> DataFrame:
     """Lê uma tabela do PostgreSQL de forma paralela e dinâmica."""
     
     bounds_query = f"(SELECT MIN({partition_column}) as min_id, MAX({partition_column}) as max_id FROM {table_name}) as bounds"
@@ -23,7 +23,6 @@ def read_from_postgres_with_partition(spark: SparkSession, jdbc_url: str, db_pro
     if bounds_row and bounds_row["min_id"] is not None:
         lower_bound = bounds_row["min_id"]
         upper_bound = bounds_row["max_id"]
-        num_partitions = 5 # Você pode tornar isso um parâmetro também
 
         print(f"Leitura paralela iniciada. Limites: {lower_bound} a {upper_bound}. Partições: {num_partitions}.")
         return spark.read.jdbc(
