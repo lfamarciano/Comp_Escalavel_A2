@@ -2,9 +2,13 @@ from pyspark.sql import SparkSession
 
 from pathlib import Path
 
-from metrics_jobs import calculate_daily_revenue_metrics, most_sold_product_by_quarters, abandoned_cart_rate
+from metric_revenue_growth import revenue_growth
+from metric_most_sold_product import most_sold_product_by_quarters
+from metric_abandoned_cart_rate import abandoned_cart_rate
+from bronze_write_data import write_to_delta
+from publish_to_redis import publish_dataframe_to_redis, publish_metric_to_redis
 
-def main():
+def metrics_pipeline():
     """Função principal que orquestra o cálculo das métricas."""
     
     # Criando sessão Spark
@@ -25,44 +29,47 @@ def main():
     eventos_web_df = spark.read.format("delta").load(str(bronze_base_path / "eventos_web"))
 
     # -- Métrica de crescimento de receita --
-    print("Calculando crescimento de receita...")
-    receita_diaria_historica_df = calculate_daily_revenue_metrics(transacoes_df, clientes_df)
-    
+    print(10 * "=")
+    print("\nCalculando crescimento de receita...")
+    crescimento_receita_df = revenue_growth(transacoes_df, clientes_df)
     print("\nResultado - Crescimento da Receita por Segmento:")
-    receita_diaria_historica_df.show(truncate=False)
-
+    crescimento_receita_df.show(truncate=False)
     # Salvando resultado na camada OURO
-    output_path = gold_base_path / "crescimento_receita"
+    metric_name = "crescimento_receita"
+    output_path = gold_base_path / metric_name
     print(f"\nSalvando resultado final DeltaLake (camada Ouro): {output_path}")
-    receita_diaria_historica_df.write.format("delta").mode("overwrite").save(str(output_path))
+    write_to_delta(crescimento_receita_df, str(output_path))
+    redis_key_name = f"historical:{metric_name}"
+    print(f"Publicando resultado final no Redis na chave: {redis_key_name}")
+    publish_dataframe_to_redis(crescimento_receita_df, redis_key_name)
 
-    print("\nMétrica de crescimento de receita calculada e salva com sucesso!")
-
-    # Calculando métrica de produtos mais vendidos por trimestre no último ano
-    print("Calculando produtos mais vendidos por trimestre no último ano...")
+    # -- Métrica de produtos mais vendidos --
+    print(10 * "=")
+    print("\nCalculando produtos mais vendidos por trimestre no último ano...")
     produtos_mais_vendidos_df = most_sold_product_by_quarters(transacoes_df)
-
     print("\nResultado - Produtos Mais Vendidos por Trimestre:")
     produtos_mais_vendidos_df.show(truncate=False)
-
     # Salvando resultado na camada OURO
-    output_path = gold_base_path / "produtos_mais_vendidos"
+    metric_name = "produtos_mais_vendidos"
+    output_path = gold_base_path / metric_name
     print(f"\nSalvando resultado final DeltaLake (camada Ouro): {output_path}")
-    receita_diaria_historica_df.write.format("delta").mode("overwrite").save(str(output_path))
+    write_to_delta(produtos_mais_vendidos_df, str(output_path))
+    redis_key_name = f"historical:{metric_name}"
+    print(f"Publicando resultado final no Redis na chave: {redis_key_name}")
+    publish_dataframe_to_redis(produtos_mais_vendidos_df, redis_key_name)
 
-    print(f"\nMétrica  de produtos mais vendidos por trimestre calculada com sucesso!")
-
-    # Calculando taxa de abandono de carrinho
-    print("Calculando taxa de abandono de carrinho...")
+    # -- Métrica de taxa de abandono de carrinho --
+    print(10 * "=")
+    print("\nCalculando taxa de abandono de carrinho...")
+    metric_name = 'taxa_abandono'
     taxa_abandono = abandoned_cart_rate(transacoes_df, eventos_web_df)
-
     print("\nResultado - Taxa de Abandono de Carrinho:")
     print(f"A taxa de abandono de carrinho é: {taxa_abandono}")
+    redis_key_name = f"historical:{metric_name}"
+    print(f"Publicando resultado final no Redis na chave: {redis_key_name}")
+    publish_metric_to_redis(taxa_abandono, redis_key_name)
 
     spark.stop()
 
 if __name__ == "__main__":
-    print(30 * "=")
-    print("RUNNING MAIN")
-    print(30 * "=")
-    main()
+    metrics_pipeline()

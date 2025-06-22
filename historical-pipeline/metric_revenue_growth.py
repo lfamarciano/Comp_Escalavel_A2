@@ -2,7 +2,7 @@ from pyspark.sql import Window
 from pyspark.sql import functions as F
 from pyspark.sql.dataframe import DataFrame
 
-def calculate_daily_revenue_metrics(transacoes_df: DataFrame, clientes_df: DataFrame) -> DataFrame:
+def revenue_growth(transacoes_df: DataFrame, clientes_df: DataFrame) -> DataFrame:
     """
     Calcula métricas de receita com granularidade DIÁRIA, segmentado por cliente.
     """
