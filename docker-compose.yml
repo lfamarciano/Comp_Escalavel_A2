@@ -74,7 +74,9 @@ services:
   # --- SERVIÇOS DA APLICAÇÃO ---
 
   db-init:
-    build: .
+    build:
+      context: .
+      target: app-python
     networks: [app-net]
     depends_on: { postgres: { condition: service_healthy } }
     environment: { DB_HOST: postgres }
@@ -82,7 +84,9 @@ services:
       sh -c "python db/create_db.py && python db/carga_inicial.py"
 
   producer:
-    build: .
+    build:
+      context: .
+      target: app-python
     networks: [app-net]
     depends_on:
       kafka: { condition: service_healthy }
@@ -90,11 +94,14 @@ services:
     environment:
       DB_HOST: postgres
       KAFKA_HOST: kafka:9092
+      NUM_WORKERS: 4
     command: ["python", "producer.py"]
     restart: on-failure
   
   spark-consumer:
-    build: .
+    build:
+      context: .
+      target: app-spark
     networks: [app-net]
     depends_on:
       kafka: { condition: service_healthy }
@@ -105,11 +112,14 @@ services:
     command: >
       /opt/spark/bin/spark-submit
       --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --conf "spark.driver.log.level=WARN"
       --master local[*]
       spark_consumer.py
 
   dashboard:
-    build: .
+    build:
+      context: .
+      target: app-python
     networks: [app-net]
     ports: ["8501:8501"]
     depends_on: { redis: { condition: service_healthy } }
