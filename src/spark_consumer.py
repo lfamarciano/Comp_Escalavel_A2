@@ -6,21 +6,15 @@ import platform # Importa a biblioteca para detetar o sistema operativo
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, sum as _sum, count, approx_count_distinct, desc
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
+from config import KAFKA_HOST, REDIS_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
 
-# --- 1. Configuração da Sessão Spark (Agora Multi-Plataforma) ---
-builder = SparkSession.builder \
-    .appName("EcommerceConsumerFinal") \
-    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0") \
+# --- 1. Configuração da Sessão Spark ---
+spark = (
+    SparkSession.builder.appName("EcommerceConsumerFinal")
+    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0")
     .config("spark.sql.streaming.ui.enabled", "true")
-
-# Aplica configurações específicas para o Windows apenas quando necessário
-if platform.system() == "Windows":
-    print("INFO: Aplicando configurações específicas para Windows.")
-    os.environ['HADOOP_HOME'] = 'C:\\hadoop'
-    builder.config("spark.driver.host", "127.0.0.1")
-    builder.config("spark.driver.extraJavaOptions", "-Djava.net.preferIPv4Stack=true")
-
-spark = builder.getOrCreate()
+    .getOrCreate()
+)
 spark.sparkContext.setLogLevel("WARN")
 print("Sessão Spark iniciada.")
 
@@ -47,13 +41,12 @@ schema_eventos = StructType([
 ])
 
 # --- 4. Leitura e Parsing dos Streams ---
-KAFKA_BROKER_URL = "localhost:9092"
-CHECKPOINT_BASE_PATH = "C:/tmp/spark_checkpoints" if platform.system() == "Windows" else "/tmp/spark_checkpoints"
+CHECKPOINT_BASE_PATH = "/tmp/spark_checkpoints"
 
-df_transacoes_raw = spark.readStream.format("kafka").option("kafka.bootstrap.servers", KAFKA_BROKER_URL).option("subscribe", "transacoes_vendas").option("startingOffsets", "latest").load()
+df_transacoes_raw = spark.readStream.format("kafka").option("kafka.bootstrap.servers", KAFKA_HOST).option("subscribe", TRANSACTIONS_TOPIC).option("startingOffsets", "latest").load()
 df_transacoes = df_transacoes_raw.select(from_json(col("value").cast("string"), schema_transacoes).alias("data")).select("data.*")
 
-df_eventos_raw = spark.readStream.format("kafka").option("kafka.bootstrap.servers", KAFKA_BROKER_URL).option("subscribe", "eventos_web").option("startingOffsets", "latest").load()
+df_eventos_raw = spark.readStream.format("kafka").option("kafka.bootstrap.servers", KAFKA_HOST).option("subscribe", WEB_EVENTS_TOPIC).option("startingOffsets", "latest").load()
 df_eventos = df_eventos_raw.select(from_json(col("value").cast("string"), schema_eventos).alias("data")).select("data.*")
 
 print("Streams do Kafka sendo lidos e parseados.")
@@ -62,7 +55,7 @@ print("Streams do Kafka sendo lidos e parseados.")
 def write_to_redis(df, metric_name):
     if not df.isEmpty():
         try:
-            r = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+            r = redis.StrictRedis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
             pandas_df = df.toPandas()
             rows = pandas_df.to_dict('records')
             payload = json.dumps(rows[0] if len(rows) == 1 else rows)
