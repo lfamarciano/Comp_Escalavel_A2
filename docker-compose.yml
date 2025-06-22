@@ -83,6 +83,25 @@ services:
     command: >
       sh -c "python db/create_db.py && python db/carga_inicial.py"
 
+  persist-sim-consumer:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    depends_on:
+      kafka: { condition: service_healthy }
+      db-init: { condition: service_completed_successfully }
+      producer: { condition: service_started }
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:9092
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --conf "spark.driver.log.level=WARN"
+      --master local[*]
+      persist_sim_consumer.py
+  
   producer:
     build:
       context: .
@@ -123,5 +142,5 @@ services:
     networks: [app-net]
     ports: ["8501:8501"]
     depends_on: { redis: { condition: service_healthy } }
-    environment: { REDIS_HOST: redis }
+    environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
     command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
