@@ -4,12 +4,10 @@ import psycopg2
 import psycopg2.extras
 from kafka import KafkaConsumer
 from db.db_config import DB_CONFIG
-
+from config import KAFKA_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
 
 # 1. Configurações
-KAFKA_BROKER_URL = 'localhost:9092'
-TRANSACTIONS_TOPIC = 'transacoes_vendas'
-WEB_EVENTS_TOPIC = 'eventos_web'
+KAFKA_BROKER_URL = KAFKA_HOST
 KAFKA_CONSUMER_GROUP = 'db-persistor-group'
 
 # Configurações do Lote

@@ -8,7 +8,13 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 import psycopg2
 
-from db.db_config import DB_CONFIG
+from config import (
+    POSTGRES_PASSWORD,
+    POSTGRES_DATABASE,
+    POSTGRES_USER,
+    POSTGRES_HOST,
+    POSTGRES_PORT
+)
 
 # Configurações da página
 st.set_page_config(
@@ -75,7 +81,11 @@ def get_redis_connection():
 def get_postgres_connection():
     try:
         conn = psycopg2.connect(
-            **DB_CONFIG
+            host=POSTGRES_HOST,
+            database=POSTGRES_DATABASE,
+            user=POSTGRES_USER,
+            password=POSTGRES_PASSWORD,
+            port=POSTGRES_PORT
         )
         return conn
     except Exception as e:

@@ -1,6 +1,6 @@
 # ANTES DE EXECUTAR ESTE ARQUIVO, CERTIFIQUE-SE DE QUE O DOCKER DESCKTOP ESTÁ INSTALADO
 # RODE O SEGUINTE COMANDO NO TERMINAL PARA CRIAR E INICIAR OS CONTEINERES:
-# > docker-compose up
+# > docker-compose up --build --scale producer=2
 # PARA VERIFICAR SE OS CONTEINERES ESTÃO RODANDO, USE O COMANDO:
 # > docker ps
 # JÁ PODE RODAR ESSE ARQUIVO (producers.py) PARA COMEÇAR A SIMULAR A ATIVIDADE DOS USUÁRIOS
@@ -15,21 +15,17 @@ from decimal import Decimal
 import time
 from datetime import datetime, timedelta
 import os
-import multiprocessing
 from faker import Faker
 # from faker_commerce import Provider
 from kafka import KafkaProducer
 import psycopg2
 import psycopg2.extras
 from db.db_config import DB_CONFIG
+from config import KAFKA_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
 
 fake = Faker()
 # fake.add_provider(Provider)
 
-# Configuração do Produtor Kafka 
-KAFKA_BROKER_URL = 'localhost:9092'
-TRANSACTIONS_TOPIC = 'transacoes_vendas'
-WEB_EVENTS_TOPIC = 'eventos_web'
 
 # Classe para ensinar a biblioteca JSON a converter o tipo Decimal e datetime
 class CustomJSONEncoder(json.JSONEncoder):
@@ -41,7 +37,6 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super(CustomJSONEncoder, self).default(obj)
-
 
 
 # Funções para buscar dados do PostgreSQL
@@ -194,7 +189,7 @@ def simular_atividade_cliente(producer, usuario, todos_produtos, bprint=True):
         print("[FIM DA JORNADA] Usuário ABANDONOU o carrinho.") if bprint else None
         
 # Função do Worker
-def worker_producer(worker_id, usuarios, produtos):
+def worker_producer(worker_id, usuarios, produtos, bprint=False):
     """
     Esta é a função que cada processo irá executar de forma independente.
     """
@@ -202,7 +197,7 @@ def worker_producer(worker_id, usuarios, produtos):
 
     # CADA PROCESSO CRIA SUA PRÓPRIA INSTÂNCIA DO PRODUCER
     producer = KafkaProducer(
-        bootstrap_servers=[KAFKA_BROKER_URL],
+        bootstrap_servers=[KAFKA_HOST],
         value_serializer=lambda v: json.dumps(v, cls=CustomJSONEncoder).encode('utf-8'),
         # Configurações de performance do Kafka Producer
         # Aumenta o tamanho do lote de mensagens para 64KB.
@@ -218,7 +213,7 @@ def worker_producer(worker_id, usuarios, produtos):
     while True:
         try:
             usuario_selecionado = random.choice(usuarios)
-            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=True)
+            simular_atividade_cliente(producer, usuario_selecionado, produtos,bprint=bprint)
             producer.flush()
             time.sleep(random.uniform(0.5, 2.0))
         except Exception as e:
@@ -226,29 +221,18 @@ def worker_producer(worker_id, usuarios, produtos):
             time.sleep(5)
             
 # Orquestrador Principal
-if __name__ == "__main__":    
-    # Define quantos produtores paralelos você quer rodar
-    NUM_PROCESSES = 4
-
-    # Busca os dados do DB uma única vez no processo principal
+if __name__ == "__main__":
+    # O script executa como um único processo
+    # E a escalabilidade é atigida ao rodar este script em múltiplas máquinas ou contentores.
+    
+    print("Buscando dados iniciais...")
     usuarios_db = fetch_usuarios_from_db()
     produtos_db = fetch_produtos_from_db()
 
     if not usuarios_db or not produtos_db:
-        print("ERRO FATAL: Não foi possível carregar dados do banco de dados. Abortando.")
+        print("ERRO FATAL: Não foi possível carregar dados.")
     else:
-        processes = []
-        print(f"\nIniciando {NUM_PROCESSES} processos produtores...")
+        # Apenas um ID de trabalhador, pois é um processo único
+        # A lógica do loop infinito agora está aqui
+        worker_producer(1, usuarios_db, produtos_db, bprint=True) 
 
-        # Cria e inicia cada worker
-        for i in range(NUM_PROCESSES):
-            process = multiprocessing.Process(
-                target=worker_producer,
-                args=(i + 1, usuarios_db, produtos_db)
-            )
-            processes.append(process)
-            process.start()
-        
-        # Espera que os processos terminem
-        for process in processes:
-            process.join()

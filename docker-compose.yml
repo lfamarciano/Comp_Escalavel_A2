@@ -1,18 +1,11 @@
-# ANTES DE EXECUTAR ESTE ARQUIVO, CERTIFIQUE-SE DE QUE O DOCKER DESCKTOP ESTÁ INSTALADO
-# RODE O SEGUINTE COMANDO NO TERMINAL PARA CRIAR E INICIAR OS CONTEINERES
-# > docker-compose up
-# PARA VERIFICAR SE OS CONTEINERES ESTÃO RODANDO, USE O COMANDO:
-# > docker ps
-# JÁ PODE RODAR O producer.py
-# ACESSE http://localhost:9000 PARA VER A INTEFACE DO Kafdrop
-# PARA PARAR OS CONTEINERES, USE O COMANDO:
-# > docker-compose down
+# docker-compose.yml
+# Define e orquestra toda a pilha de serviços com um único ficheiro.
+# > docker-compose up --build --scale producer=2
 
 version: '3.8'
 
-# Definindo as redes para os serviços se comunicarem
 networks:
-  kafka-net:
+  app-net:
     driver: bridge
 
 volumes:
@@ -20,81 +13,134 @@ volumes:
     driver: local
 
 services:
-  # Serviço 1: Zookeeper - Gerenciador de cluster do Kafka
+  # --- SERVIÇOS DE INFRAESTRUTURA ---
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.2
-    hostname: zookeeper
     container_name: zookeeper
     networks:
-      - kafka-net
-    ports:
-      - "2181:2181" # Porta para o Zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+      - app-net
+    environment: { ZOOKEEPER_CLIENT_PORT: 2181 }
 
-  postgres:
-    image: postgres:14-alpine
-    hostname: postgres
-    container_name: postgres_db
-    networks:
-      - kafka-net
-    ports:
-      - "5432:5432"
-    volumes:
-      # Aqui nós USAMOS o volume 'postgres-data' que foi DECLARADO acima
-      - postgres-data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123
-      POSTGRES_DB: ecommerce_db
-    restart: unless-stopped
 
-  # Serviço 2: Kafka Broker
   kafka:
     image: confluentinc/cp-kafka:7.3.2
-    hostname: kafka
     container_name: kafka
     networks:
-      - kafka-net
-    ports:
-      # Mapeia a porta 9092 do PC para a porta 9092 do container
-      # aqui que producer.py irá se conectar
-      - "9092:9092" 
-    depends_on:
-      - zookeeper
+      - app-net
+    ports: ["9092:9092"]
+    depends_on: [zookeeper]
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      # Define dois "ouvintes": um para comunicação interna e outro para externa.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # --- CORREÇÃO DE REDE DEFINITIVA ---
+      # Usamos um único 'listener' que funciona para tudo.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      # --- FIM DA CORREÇÃO ---
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      KAFKA_NUM_PARTITIONS: 2
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Serviço 3: Kafdrop - Interface Web para visualizar os tópicos e mensagens
-  kafdrop:
-    image: obsidiandynamics/kafdrop:latest
-    hostname: kafdrop
-    container_name: kafdrop
+  postgres:
+    image: postgres:14-alpine
+    container_name: postgres_db
     networks:
-      - kafka-net
-    ports:
-      # Acesse a interface no seu navegador em http://localhost:9000
-      - "9000:9000"
-    depends_on:
-      - kafka
-    environment:
-      KAFKA_BROKERCONNECT: "kafka:29092"
-  
-  # Serviço 4: Redis - armazenamento em memória para atingir alta performance
+      - app-net
+    ports: ["5432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ecommerce_db"]
+      interval: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7.2-alpine
     container_name: redis
-    ports:
-      - "6379:6379"
+    ports: ["6379:6379"]
     networks:
-      - kafka-net
+      - app-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
 
+  # --- SERVIÇOS DA APLICAÇÃO ---
+
+  db-init:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    depends_on: { postgres: { condition: service_healthy } }
+    environment: { DB_HOST: postgres }
+    command: >
+      sh -c "python db/create_db.py && python db/carga_inicial.py"
+
+  persist-sim-consumer:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    depends_on:
+      kafka: { condition: service_healthy }
+      db-init: { condition: service_completed_successfully }
+      producer: { condition: service_started }
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:9092
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --conf "spark.driver.log.level=WARN"
+      --master local[*]
+      persist_sim_consumer.py
+  
+  producer:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    depends_on:
+      kafka: { condition: service_healthy }
+      db-init: { condition: service_completed_successfully }
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:9092
+      NUM_WORKERS: 4
+    command: ["python", "producer.py"]
+    restart: on-failure
+  
+  spark-consumer:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    depends_on:
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      KAFKA_HOST: kafka:9092
+      REDIS_HOST: redis
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --conf "spark.driver.log.level=WARN"
+      --master local[*]
+      spark_consumer.py
+
+  dashboard:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    ports: ["8501:8501"]
+    depends_on: { redis: { condition: service_healthy } }
+    environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
+    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
