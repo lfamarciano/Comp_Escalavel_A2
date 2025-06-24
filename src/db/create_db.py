@@ -2,7 +2,13 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from db_config import DB_CONFIG, DB_NAME
+import sys
+from pathlib import Path
+
+# Adiciona o diretório pai ao PYTHONPATH
+sys.path.append(str(Path(__file__).parent.parent))
+
+from config import DB_CONFIG, DB_NAME
 
 def create_database():
     """

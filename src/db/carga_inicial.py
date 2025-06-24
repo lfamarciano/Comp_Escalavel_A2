@@ -4,7 +4,13 @@ from faker import Faker
 from faker_commerce import Provider
 import random
 from datetime import timedelta
-from create_db import DB_CONFIG
+import sys
+from pathlib import Path
+
+# Adiciona o diretório pai ao PYTHONPATH
+sys.path.append(str(Path(__file__).parent.parent))
+from config import DB_CONFIG, DB_NAME
+
 import uuid
 
 fake = Faker('pt_BR')

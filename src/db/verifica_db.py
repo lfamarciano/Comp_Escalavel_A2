@@ -1,5 +1,10 @@
 import psycopg2
-from create_db import DB_CONFIG
+import sys
+from pathlib import Path
+
+# Adiciona o diretório pai ao PYTHONPATH
+sys.path.append(str(Path(__file__).parent.parent))
+from config import DB_CONFIG, DB_NAME
 
 def check_row_counts():
     """Conecta ao banco de dados e imprime a contagem de linhas de cada tabela."""
