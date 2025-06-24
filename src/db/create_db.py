@@ -5,7 +5,6 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import sys
 from pathlib import Path
 
-# Adiciona o diretório pai ao PYTHONPATH
 sys.path.append(str(Path(__file__).parent.parent))
 
 from config import DB_CONFIG, DB_NAME
