@@ -2,19 +2,46 @@ import streamlit as st
 import redis
 import pandas as pd
 import json
+import os
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 import psycopg2
 
-from config import (
-    POSTGRES_PASSWORD,
-    POSTGRES_DATABASE,
-    POSTGRES_USER,
-    POSTGRES_HOST,
-    POSTGRES_PORT
-)
+# --- CONFIGURAÇÃO INTELIGENTE E CENTRALIZADA ---
+# Removemos a importação confusa do topo do arquivo.
+# Esta é a única fonte da verdade para configuração.
+
+# 1. Tenta importar as configurações padrão do arquivo local.py
+try:
+    from config.local import (
+        REDIS_HOST as DEFAULT_REDIS_HOST,
+        POSTGRES_HOST as DEFAULT_POSTGRES_HOST,
+        POSTGRES_USER as DEFAULT_POSTGRES_USER,
+        POSTGRES_PASSWORD as DEFAULT_POSTGRES_PASSWORD,
+        POSTGRES_PORT as DEFAULT_POSTGRES_PORT,
+        POSTGRES_DATABASE as DEFAULT_POSTGRES_DATABASE
+    )
+except ImportError:
+    # Fallback caso o arquivo não exista
+    DEFAULT_REDIS_HOST = 'localhost'
+    DEFAULT_POSTGRES_HOST = 'localhost'
+    DEFAULT_POSTGRES_USER = 'postgres'
+    DEFAULT_POSTGRES_PASSWORD = '123'
+    DEFAULT_POSTGRES_PORT = '5432'
+    DEFAULT_POSTGRES_DATABASE = 'ecommerce_db'
+
+# 2. Permite que as variáveis de ambiente (do docker-compose) sobreponham os padrões.
+REDIS_HOST = os.environ.get('REDIS_HOST', DEFAULT_REDIS_HOST)
+POSTGRES_HOST = os.environ.get('POSTGRES_HOST', DEFAULT_POSTGRES_HOST)
+POSTGRES_USER = os.environ.get('POSTGRES_USER', DEFAULT_POSTGRES_USER)
+POSTGRES_PASSWORD = os.environ.get('POSTGRES_PASSWORD', DEFAULT_POSTGRES_PASSWORD)
+POSTGRES_PORT = os.environ.get('POSTGRES_PORT', DEFAULT_POSTGRES_PORT)
+POSTGRES_DATABASE = os.environ.get('POSTGRES_DB', DEFAULT_POSTGRES_DATABASE)
+
+
+
 
 # Configurações da página
 st.set_page_config(
@@ -69,17 +96,19 @@ st.markdown("""
 @st.cache_resource
 def get_redis_connection():
     try:
-        r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        # CORRIGIDO: Usa a variável REDIS_HOST
+        r = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
         r.ping()
-        print("Conexão com Redis estabelecida/reutilizada.")
+        print(f"Conexão com Redis ({REDIS_HOST}) estabelecida/reutilizada.")
         return r
     except redis.exceptions.ConnectionError as e:
-        st.error(f"Não foi possível conectar ao Redis. Verifique se o container Docker está em execução. Detalhes: {e}")
+        st.error(f"Não foi possível conectar ao Redis em '{REDIS_HOST}'. Detalhes: {e}")
         return None
 
 @st.cache_resource
 def get_postgres_connection():
     try:
+        # CORRIGIDO: Usa as variáveis de ambiente para a conexão
         conn = psycopg2.connect(
             host=POSTGRES_HOST,
             database=POSTGRES_DATABASE,
@@ -87,9 +116,10 @@ def get_postgres_connection():
             password=POSTGRES_PASSWORD,
             port=POSTGRES_PORT
         )
+        print(f"Conexão com PostgreSQL ({POSTGRES_HOST}) estabelecida/reutilizada.")
         return conn
     except Exception as e:
-        st.error(f"Erro ao conectar ao PostgreSQL: {e}")
+        st.error(f"Erro ao conectar ao PostgreSQL em '{POSTGRES_HOST}': {e}")
         return None
 
 # --- Funções de busca de dados ---
@@ -150,14 +180,13 @@ if 'previous_kpis' not in st.session_state:
 
 # Notificação inteligente
 if current_kpis != st.session_state['previous_kpis']:
-    st.toast('🚀 Novos dados chegaram!', icon='🚀')
+    st.toast('Novos dados chegaram!')
     st.session_state['previous_kpis'] = current_kpis
 else:
-    st.toast(f'Verificado às {last_update_time}. Sem novos dados.', icon='🔄')
+    st.toast(f'Verificado às {last_update_time}. Sem novos dados.')
 
 # --- Barra Lateral (Sidebar) ---
 with st.sidebar:
-    st.image("dash_image_old_pc.png", width=150)
     st.title("E-commerce Live View")
     st.markdown("---")
     st.markdown(f"**Última Verificação:** `{last_update_time}`")

@@ -142,5 +142,12 @@ services:
     networks: [app-net]
     ports: ["8501:8501"]
     depends_on: { redis: { condition: service_healthy } }
-    environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
+    environment:
+      # --- ADICIONE A LINHA FALTANTE AQUI ---
+      POSTGRES_HOST: postgres
+      # ------------------------------------
+      REDIS_HOST: redis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: ecommerce_db
     command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
