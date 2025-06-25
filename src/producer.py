@@ -20,7 +20,7 @@ from faker import Faker
 from kafka import KafkaProducer
 import psycopg2
 import psycopg2.extras
-from db.db_config import DB_CONFIG
+from config import DB_CONFIG
 from config import KAFKA_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
 
 fake = Faker()

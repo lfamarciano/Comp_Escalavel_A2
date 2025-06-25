@@ -1,7 +1,7 @@
 # Arquivo para definir os endereços para os serviços na AWS.
 import os
 
-KAFKA_BROKER_URL = 'b-1.seu-cluster-msk...' # Endpoint do Amazon MSK
+KAFKA_BROKER_URL = '10.0.155.193:9092' # Endpoint do Amazon MSK
 REDIS_HOST = 'seu-cluster-redis.xxxx...'  # Endpoint do ElastiCache
 
 DB_HOST = os.environ.get('DB_HOST', 'postgres-identifier.chvwsyfmunoi.us-east-1.rds.amazonaws.com')

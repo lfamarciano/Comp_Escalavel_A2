@@ -1,0 +1,78 @@
+# docker-compose.yml
+# Define e orquestra toda a pilha de serviços com um único ficheiro.
+# > docker-compose up --build --scale producer=2
+
+version: '3.8'
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+
+services:
+  # --- SERVIÇOS DA APLICAÇÃO ---
+
+  persist-sim-consumer:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    depends_on:
+      kafka: { condition: service_healthy }
+      db-init: { condition: service_completed_successfully }
+      producer: { condition: service_started }
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:9092
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --conf "spark.driver.log.level=WARN"
+      --master local[*]
+      persist_sim_consumer.py
+  
+  producer:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    depends_on:
+      kafka: { condition: service_healthy }
+      db-init: { condition: service_completed_successfully }
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:9092
+      NUM_WORKERS: 4
+    command: ["python", "producer.py"]
+    restart: on-failure
+  
+  spark-consumer:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    depends_on:
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      KAFKA_HOST: kafka:9092
+      REDIS_HOST: redis
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --conf "spark.driver.log.level=WARN"
+      --master local[*]
+      spark_consumer.py
+
+  dashboard:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    ports: ["8501:8501"]
+    depends_on: { redis: { condition: service_healthy } }
+    environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
+    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
