@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 
 from pathlib import Path
 import os
+import sys
 
 # Importando todas as funções
 from bronze_read_data import read_from_postgres_with_partition
@@ -10,7 +11,11 @@ from bronze_clean_data import clean_clients_data, clean_transactions_data, clean
 from bronze_write_data import write_to_delta, deltalake_bronze_path
 
 # Impotando db_config com as configurações do db de db_import
-from db_import import DB_CONFIG, DB_NAME
+root_dir = Path(__file__).resolve().parent.parent
+# print(f"db_dir: {db_dir}, {db_dir.exists()}")
+# sys.path.append(str(db_dir))
+sys.path.append(str(root_dir))
+from config import DB_CONFIG, DB_NAME
 
 # TODO: Adjust number of partitions dinamically
 NUM_PARTITIONS = 5 # Num partitions in which to divide Posgres reading

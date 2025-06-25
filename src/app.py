@@ -9,38 +9,19 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 import psycopg2
 
-# --- CONFIGURAÇÃO INTELIGENTE E CENTRALIZADA ---
-# Removemos a importação confusa do topo do arquivo.
-# Esta é a única fonte da verdade para configuração.
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 
-# 1. Tenta importar as configurações padrão do arquivo local.py
-try:
-    from config.local import (
-        REDIS_HOST as DEFAULT_REDIS_HOST,
-        POSTGRES_HOST as DEFAULT_POSTGRES_HOST,
-        POSTGRES_USER as DEFAULT_POSTGRES_USER,
-        POSTGRES_PASSWORD as DEFAULT_POSTGRES_PASSWORD,
-        POSTGRES_PORT as DEFAULT_POSTGRES_PORT,
-        POSTGRES_DATABASE as DEFAULT_POSTGRES_DATABASE
-    )
-except ImportError:
-    # Fallback caso o arquivo não exista
-    DEFAULT_REDIS_HOST = 'localhost'
-    DEFAULT_POSTGRES_HOST = 'localhost'
-    DEFAULT_POSTGRES_USER = 'postgres'
-    DEFAULT_POSTGRES_PASSWORD = '123'
-    DEFAULT_POSTGRES_PORT = '5432'
-    DEFAULT_POSTGRES_DATABASE = 'ecommerce_db'
-
-# 2. Permite que as variáveis de ambiente (do docker-compose) sobreponham os padrões.
-REDIS_HOST = os.environ.get('REDIS_HOST', DEFAULT_REDIS_HOST)
-POSTGRES_HOST = os.environ.get('POSTGRES_HOST', DEFAULT_POSTGRES_HOST)
-POSTGRES_USER = os.environ.get('POSTGRES_USER', DEFAULT_POSTGRES_USER)
-POSTGRES_PASSWORD = os.environ.get('POSTGRES_PASSWORD', DEFAULT_POSTGRES_PASSWORD)
-POSTGRES_PORT = os.environ.get('POSTGRES_PORT', DEFAULT_POSTGRES_PORT)
-POSTGRES_DATABASE = os.environ.get('POSTGRES_DB', DEFAULT_POSTGRES_DATABASE)
-
-
+from config import (
+    POSTGRES_PASSWORD,
+    POSTGRES_DATABASE,
+    POSTGRES_USER,
+    POSTGRES_HOST,
+    POSTGRES_PORT,
+    REDIS_HOST,
+    REDIS_PORT
+)
 
 
 # Configurações da página
@@ -96,8 +77,7 @@ st.markdown("""
 @st.cache_resource
 def get_redis_connection():
     try:
-        # CORRIGIDO: Usa a variável REDIS_HOST
-        r = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         r.ping()
         print(f"Conexão com Redis ({REDIS_HOST}) estabelecida/reutilizada.")
         return r
