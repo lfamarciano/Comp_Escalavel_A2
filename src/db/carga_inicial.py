@@ -117,6 +117,7 @@ def simular_historico_jornadas(cursor, clientes, produtos, num_jornadas=200):
                     ))
 
     # Inserir todos os eventos e transações gerados no banco de dados
+    print(f"Inserindo {len(eventos_web)} eventos e {len(transacoes_vendas)} transações no banco de dados...")
     psycopg2.extras.execute_values(
         cursor,
         "INSERT INTO eventos_web (id_usuario, id_sessao, id_carrinho, tipo_evento, id_produto, timestamp_evento) VALUES %s",

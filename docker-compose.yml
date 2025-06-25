@@ -86,7 +86,7 @@ services:
   persist-sim-consumer:
     build:
       context: .
-      target: app-spark
+      target: app-python
     networks: [app-net]
     depends_on:
       kafka: { condition: service_healthy }
@@ -95,12 +95,7 @@ services:
     environment:
       DB_HOST: postgres
       KAFKA_HOST: kafka:9092
-    command: >
-      /opt/spark/bin/spark-submit
-      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
-      --conf "spark.driver.log.level=WARN"
-      --master local[*]
-      persist_sim_consumer.py
+    command: ["python", "persist_sim_consumer.py"]
   
   producer:
     build:

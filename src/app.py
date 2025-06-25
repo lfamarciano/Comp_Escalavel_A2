@@ -13,11 +13,14 @@ from config import (
     POSTGRES_DATABASE,
     POSTGRES_USER,
     POSTGRES_HOST,
-    POSTGRES_PORT
+    POSTGRES_PORT,
+    REDIS_HOST,
+    REDIS_PORT
 )
 
+
 # Configurações da página
-st.set_page_config(
+st.set_page_config(s
     page_title="Dashboard de E-commerce | Live + Histórico",
     page_icon="📊",
     layout="wide",
@@ -69,7 +72,7 @@ st.markdown("""
 @st.cache_resource
 def get_redis_connection():
     try:
-        r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         r.ping()
         print("Conexão com Redis estabelecida/reutilizada.")
         return r

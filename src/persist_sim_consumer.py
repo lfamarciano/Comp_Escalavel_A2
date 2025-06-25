@@ -3,8 +3,7 @@ import time
 import psycopg2
 import psycopg2.extras
 from kafka import KafkaConsumer
-from db.db_config import DB_CONFIG
-from config import KAFKA_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
+from config import KAFKA_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC, DB_CONFIG
 
 # 1. Configurações
 KAFKA_CONSUMER_GROUP = 'db-persistor-group'

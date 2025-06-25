@@ -1,8 +1,10 @@
 # Arquivo para definir os endereços para os serviços na AWS.
 import os
 
-KAFKA_HOST = '10.0.155.193:9092' # Endpoint do Amazon MSK
-REDIS_HOST = 'seu-cluster-redis.xxxx...'  # Endpoint do ElastiCache
+KAFKA_HOST = os.environ.get('KAFKA_HOST', '10.0.155.193:9092')
+
+REDIS_HOST = os.environ.get('REDIS_HOST', 'master.redis.wcceek.use1.cache.amazonaws.com:6379')
+REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 
 DB_HOST = os.environ.get('DB_HOST', 'postgres-identifier.chvwsyfmunoi.us-east-1.rds.amazonaws.com')
 DB_USER = os.environ.get('DB_USER', 'postgres')
