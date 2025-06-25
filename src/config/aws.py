@@ -1,10 +1,17 @@
 # Arquivo para definir os endereços para os serviços na AWS.
+import os
+
 KAFKA_BROKER_URL = 'b-1.seu-cluster-msk...' # Endpoint do Amazon MSK
 REDIS_HOST = 'seu-cluster-redis.xxxx...'  # Endpoint do ElastiCache
+
+DB_HOST = os.environ.get('DB_HOST', 'postgres-identifier.chvwsyfmunoi.us-east-1.rds.amazonaws.com')
+DB_USER = os.environ.get('DB_USER', 'postgres')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', "12345678")
+
 DB_CONFIG = {
-    'host': 'postgres-identifier.chvwsyfmunoi.us-east-1.rds.amazonaws.com', # <== COLE O ENDPOINT AQUI
-    'user': 'postgres', # O utilizador que você definiu ao criar o RDS
-    'password': "12345678", # A senha que você definiu
+    'host': DB_HOST,
+    'user': DB_USER, # O utilizador que você definiu ao criar o RDS
+    'password': DB_PASSWORD, # A senha que você definiu no AWS RDS
     'port': '5432',
     'database': 'ecommerce_db'
 }
