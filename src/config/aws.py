@@ -1,7 +1,6 @@
 # Arquivo para definir os endereços para os serviços na AWS.
 import os
 
-
 KAFKA_HOST = '10.0.155.193:9092' # Endpoint do Amazon MSK
 REDIS_HOST = 'seu-cluster-redis.xxxx...'  # Endpoint do ElastiCache
 
@@ -17,4 +16,10 @@ DB_CONFIG = {
     'database': 'ecommerce_db'
 }
 DB_NAME = 'ecommerce_db'
+
+POSTGRES_HOST = DB_HOST
+POSTGRES_USER = DB_USER
+POSTGRES_PASSWORD = DB_PASSWORD
+POSTGRES_PORT = '5432'
+POSTGRES_DATABASE = DB_NAME
 # ... etc.
