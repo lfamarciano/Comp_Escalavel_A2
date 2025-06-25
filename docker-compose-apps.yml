@@ -21,7 +21,8 @@ services:
       target: app-python
     container_name: db_init
     networks: [app-net]
-    environment: { DB_HOST: postgres }
+    environment:
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       sh -c "python db/create_db.py && python db/carga_inicial.py"
 
@@ -34,8 +35,7 @@ services:
     depends_on:
       db-init: { condition: service_completed_successfully }
     environment:
-      DB_HOST: postgres
-      KAFKA_HOST: kafka:9092
+      PIPELINE_ENV: ${PIPELINE_ENV}
       NUM_WORKERS: 4
     command: ["python", "producer.py"]
     restart: on-failure
@@ -50,6 +50,7 @@ services:
       db-init: { condition: service_completed_successfully }
       producer: { condition: service_started }
     environment:
+      PIPELINE_ENV: ${PIPELINE_ENV}
       DB_HOST: postgres
       KAFKA_HOST: kafka:9092
     command: ["python", "persist_sim_consumer.py"]
@@ -62,9 +63,5 @@ services:
     networks: [app-net]
     ports: ["8501:8501"]
     environment:
-      POSTGRES_HOST: postgres
-      REDIS_HOST: redis
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123
-      POSTGRES_DB: ecommerce_db
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
