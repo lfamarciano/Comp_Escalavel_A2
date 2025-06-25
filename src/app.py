@@ -8,6 +8,10 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 import psycopg2
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 from config import (
     POSTGRES_PASSWORD,
     POSTGRES_DATABASE,
@@ -20,7 +24,7 @@ from config import (
 
 
 # Configurações da página
-st.set_page_config(s
+st.set_page_config(
     page_title="Dashboard de E-commerce | Live + Histórico",
     page_icon="📊",
     layout="wide",
@@ -160,7 +164,7 @@ else:
 
 # --- Barra Lateral (Sidebar) ---
 with st.sidebar:
-    st.image("dash_image_old_pc.png", width=150)
+    st.image("../dash_image_old_pc.png", width=150)
     st.title("E-commerce Live View")
     st.markdown("---")
     st.markdown(f"**Última Verificação:** `{last_update_time}`")

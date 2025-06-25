@@ -126,7 +126,7 @@ services:
     command: >
       /opt/spark/bin/spark-submit
       --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
-      --conf "spark.driver.log.level=WARN"
+      --conf "spark.driver.log.level=ERROR"
       --master local[*]
       spark_consumer.py
 
