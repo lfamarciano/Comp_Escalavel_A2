@@ -1,0 +1,47 @@
+# docker-compose.yml
+# Define e orquestra toda a pilha de serviços com um único ficheiro.
+# > docker-compose up --build --scale producer=2
+
+version: '3.8'
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+
+services:
+  # --- SERVIÇOS DA APLICAÇÃO ---
+
+  persist-sim-consumer:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:9092
+    command: ["python", "persist_sim_consumer.py"]
+  
+  producer:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    environment:
+      DB_HOST: postgres
+      KAFKA_HOST: kafka:9092
+      NUM_WORKERS: 4
+    command: ["python", "producer.py"]
+    restart: on-failure
+
+  dashboard:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    ports: ["8501:8501"]
+    environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
+    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
