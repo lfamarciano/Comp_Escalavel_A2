@@ -164,7 +164,7 @@ else:
 
 # --- Barra Lateral (Sidebar) ---
 with st.sidebar:
-    st.image("../dash_image_old_pc.png", width=150)
+    # st.image("../dash_image_old_pc.png", width=150)
     st.title("E-commerce Live View")
     st.markdown("---")
     st.markdown(f"**Última Verificação:** `{last_update_time}`")
