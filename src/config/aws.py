@@ -2,7 +2,7 @@
 KAFKA_BROKER_URL = 'b-1.seu-cluster-msk...' # Endpoint do Amazon MSK
 REDIS_HOST = 'seu-cluster-redis.xxxx...'  # Endpoint do ElastiCache
 DB_CONFIG = {
-    'host': 'postgres.chvwsyfmunoi.us-east-1.rds.amazonaws.com', # <== COLE O ENDPOINT AQUI
+    'host': 'postgres-identifier.chvwsyfmunoi.us-east-1.rds.amazonaws.com', # <== COLE O ENDPOINT AQUI
     'user': 'postgres', # O utilizador que você definiu ao criar o RDS
     'password': "12345678", # A senha que você definiu
     'port': '5432',
