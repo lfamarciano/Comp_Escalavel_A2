@@ -7,7 +7,6 @@ from db.db_config import DB_CONFIG
 from config import KAFKA_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
 
 # 1. Configurações
-KAFKA_BROKER_URL = KAFKA_HOST
 KAFKA_CONSUMER_GROUP = 'db-persistor-group'
 
 # Configurações do Lote
@@ -71,7 +70,7 @@ def main():
             consumer = KafkaConsumer(
                 TRANSACTIONS_TOPIC,
                 WEB_EVENTS_TOPIC,
-                bootstrap_servers=[KAFKA_BROKER_URL],
+                bootstrap_servers=[KAFKA_HOST],
                 group_id=KAFKA_CONSUMER_GROUP,
                 auto_offset_reset='earliest',
                 value_deserializer=lambda m: json.loads(m.decode('utf-8'))

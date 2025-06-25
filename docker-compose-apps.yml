@@ -20,10 +20,6 @@ services:
       context: .
       target: app-spark
     networks: [app-net]
-    depends_on:
-      kafka: { condition: service_healthy }
-      db-init: { condition: service_completed_successfully }
-      producer: { condition: service_started }
     environment:
       DB_HOST: postgres
       KAFKA_HOST: kafka:9092
@@ -39,9 +35,6 @@ services:
       context: .
       target: app-python
     networks: [app-net]
-    depends_on:
-      kafka: { condition: service_healthy }
-      db-init: { condition: service_completed_successfully }
     environment:
       DB_HOST: postgres
       KAFKA_HOST: kafka:9092
@@ -54,9 +47,6 @@ services:
       context: .
       target: app-spark
     networks: [app-net]
-    depends_on:
-      kafka: { condition: service_healthy }
-      redis: { condition: service_healthy }
     environment:
       KAFKA_HOST: kafka:9092
       REDIS_HOST: redis
@@ -73,6 +63,5 @@ services:
       target: app-python
     networks: [app-net]
     ports: ["8501:8501"]
-    depends_on: { redis: { condition: service_healthy } }
     environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
     command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
