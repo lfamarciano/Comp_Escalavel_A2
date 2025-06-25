@@ -41,21 +41,6 @@ services:
       NUM_WORKERS: 4
     command: ["python", "producer.py"]
     restart: on-failure
-  
-  spark-consumer:
-    build:
-      context: .
-      target: app-spark
-    networks: [app-net]
-    environment:
-      KAFKA_HOST: kafka:9092
-      REDIS_HOST: redis
-    command: >
-      /opt/spark/bin/spark-submit
-      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
-      --conf "spark.driver.log.level=WARN"
-      --master local[*]
-      spark_consumer.py
 
   dashboard:
     build:
