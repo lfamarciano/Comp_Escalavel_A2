@@ -4,9 +4,11 @@ from pathlib import Path
 
 # Adiciona o diretório pai ao PYTHONPATH
 sys.path.append(str(Path(__file__).parent.parent))
-from config import DB_CONFIG, DB_NAME
+from config import DB_CONFIG, OUT_URL
 
-conn_config_admin = {**DB_CONFIG, 'host': 'localhost'}
+HOST = 
+conn_config_admin = {**DB_CONFIG, 'host': OUT_URL}
+
 
 def check_row_counts():
     """Conecta ao banco de dados e imprime a contagem de linhas de cada tabela."""
