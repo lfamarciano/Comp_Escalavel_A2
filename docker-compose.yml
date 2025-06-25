@@ -52,6 +52,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 40s
 
   postgres:
     image: postgres:14-alpine
@@ -150,9 +151,7 @@ services:
     ports: ["8501:8501"]
     depends_on: { redis: { condition: service_healthy } }
     environment:
-      # --- ADICIONE A LINHA FALTANTE AQUI ---
       POSTGRES_HOST: postgres
-      # ------------------------------------
       REDIS_HOST: redis
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
