@@ -104,7 +104,7 @@ services:
     environment:
       DB_HOST: postgres
       KAFKA_HOST: kafka:9092
-    command: ["python", "persist_sim_consumer.py"]
+    command: ["python", "-u", "persist_sim_consumer.py"]
   
   producer:
     build:
