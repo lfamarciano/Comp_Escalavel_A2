@@ -14,7 +14,8 @@ COPY requirements.txt .
 FROM base AS app-python
 
 # Instala as dependências a partir do requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install uv
+RUN uv pip install --system --no-cache-dir -r requirements.txt
 
 # Comando padrão (será sobreposto pelo docker-compose)
 CMD ["echo", "Imagem 'app-python' pronta. Especifique um comando no docker-compose.yml."]
