@@ -1,0 +1,30 @@
+# docker-compose.yml
+# Define e orquestra toda a pilha de serviços com um único ficheiro.
+# > docker-compose up --build --scale producer=2
+
+version: '3.8'
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+
+services:
+
+  spark-consumer:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    container_name: spark_consumer
+    environment:
+      KAFKA_HOST: kafka:9092
+      REDIS_HOST: redis
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --master local[*]
+      spark_consumer.py
