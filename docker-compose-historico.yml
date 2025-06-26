@@ -26,6 +26,7 @@ services:
       - ./deltalake:/app/deltalake
     environment:
       DELTALAKE_BASE_PATH: /app/deltalake
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       /opt/spark/bin/spark-submit 
       --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
@@ -46,6 +47,7 @@ services:
       - ./deltalake:/app/deltalake
     environment:
       DELTALAKE_BASE_PATH: /app/deltalake
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       /opt/spark/bin/spark-submit 
       --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
@@ -66,8 +68,7 @@ services:
       - ./deltalake:/app/deltalake
     environment:
       DELTALAKE_BASE_PATH: /app/deltalake
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       /opt/spark/bin/spark-submit 
       --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0

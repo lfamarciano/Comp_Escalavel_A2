@@ -21,8 +21,7 @@ services:
     networks: [app-net]
     container_name: spark_consumer
     environment:
-      KAFKA_HOST: kafka:9092
-      REDIS_HOST: redis
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       /opt/spark/bin/spark-submit
       --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0

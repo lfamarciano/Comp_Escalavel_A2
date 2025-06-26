@@ -62,7 +62,7 @@ print("Streams do Kafka sendo lidos e parseados.")
 
 # --- 5. Lógica de Escrita com foreachPartition (sem alterações) ---
 def write_partition_to_temp_redis_list(partition_iterator, temp_key):
-    r = redis.StrictRedis(host=REDIS_HOST, port=6379, db=0, decode_responses=True, ssl=True, ssl_cert_reqs=None)
+    r = redis.StrictRedis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
     json_strings = [json.dumps(row.asDict()) for row in partition_iterator]
     if json_strings:
         r.rpush(temp_key, *json_strings)
