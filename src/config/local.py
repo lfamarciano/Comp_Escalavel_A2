@@ -2,6 +2,8 @@
 import os
 import json
 
+OUT_URL = 'localhost'
+
 REDIS_HOST = 'redis'
 REDIS_PORT = '6379'
 

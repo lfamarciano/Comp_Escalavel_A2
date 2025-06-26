@@ -14,34 +14,40 @@ volumes:
 
 services:
   # --- SERVIÇOS DA APLICAÇÃO ---
-
-  persist-sim-consumer:
+  db-init:
     build:
       context: .
-      target: app-spark
+      target: app-python
+    container_name: db_init
     networks: [app-net]
     environment:
-      DB_HOST: postgres
-      KAFKA_HOST: kafka:9092
-    command: ["python", "persist_sim_consumer.py"]
-  
+      PIPELINE_ENV: ${PIPELINE_ENV}
+    command: >
+      sh -c "python db/create_db.py && python db/carga_inicial.py"
+
   producer:
     build:
       context: .
       target: app-python
     networks: [app-net]
+    container_name: producer
+    depends_on:
+      db-init: { condition: service_completed_successfully }
     environment:
-      DB_HOST: postgres
-      KAFKA_HOST: kafka:9092
+      PIPELINE_ENV: ${PIPELINE_ENV}
       NUM_WORKERS: 4
     command: ["python", "producer.py"]
     restart: on-failure
 
-  dashboard:
+  persist-sim-consumer:
     build:
       context: .
       target: app-python
     networks: [app-net]
-    ports: ["8501:8501"]
-    environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
-    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    container_name: persist_sim_consumer
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+      producer: { condition: service_started }
+    environment:
+      PIPELINE_ENV: ${PIPELINE_ENV}
+    command: ["python", "-u", "persist_sim_consumer.py"]

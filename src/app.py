@@ -2,6 +2,7 @@ import streamlit as st
 import redis
 import pandas as pd
 import json
+import os
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
@@ -76,17 +77,18 @@ st.markdown("""
 @st.cache_resource
 def get_redis_connection():
     try:
-        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True, ssl=True, ssl_cert_reqs=None)
         r.ping()
-        print("Conexão com Redis estabelecida/reutilizada.")
+        print(f"Conexão com Redis ({REDIS_HOST}) estabelecida/reutilizada.")
         return r
     except redis.exceptions.ConnectionError as e:
-        st.error(f"Não foi possível conectar ao Redis. Verifique se o container Docker está em execução. Detalhes: {e}")
+        st.error(f"Não foi possível conectar ao Redis em '{REDIS_HOST}'. Detalhes: {e}")
         return None
 
 @st.cache_resource
 def get_postgres_connection():
     try:
+        # CORRIGIDO: Usa as variáveis de ambiente para a conexão
         conn = psycopg2.connect(
             host=POSTGRES_HOST,
             database=POSTGRES_DATABASE,
@@ -94,9 +96,10 @@ def get_postgres_connection():
             password=POSTGRES_PASSWORD,
             port=POSTGRES_PORT
         )
+        print(f"Conexão com PostgreSQL ({POSTGRES_HOST}) estabelecida/reutilizada.")
         return conn
     except Exception as e:
-        st.error(f"Erro ao conectar ao PostgreSQL: {e}")
+        st.error(f"Erro ao conectar ao PostgreSQL em '{POSTGRES_HOST}': {e}")
         return None
 
 # --- Funções de busca de dados ---
@@ -118,22 +121,50 @@ def query_postgres(query, conn):
         return pd.DataFrame()
 
 def get_realtime_kpis(r):
-    metrics = fetch_redis_data(r, "realtime:metricas_globais")
-    if metrics:
-        return {
-            "receita": metrics.get("receita_total_global", 0),
-            "pedidos": metrics.get("pedidos_totais_global", 0),
-            "ticket_medio": metrics.get("ticket_medio_global", 0)
-        }
-    return {"receita": 0, "pedidos": 0, "ticket_medio": 0}
+    """Busca as métricas globais e lida com o formato de lista ou dicionário."""
+    metrics_data = fetch_redis_data(r, "realtime:metricas_globais")
+    metrics = {} # Inicia com um dicionário vazio por segurança
+
+    if metrics_data:
+        # Se o dado do Redis for uma lista (devido ao bug de formato),
+        # pegamos o primeiro (e único) dicionário de dentro dela.
+        if isinstance(metrics_data, list) and len(metrics_data) > 0:
+            metrics = metrics_data[0]
+        # Se já estiver no formato correto de dicionário, apenas usamos.
+        elif isinstance(metrics_data, dict):
+            metrics = metrics_data
+
+    return {
+        "receita": metrics.get("receita_total_global", 0),
+        "pedidos": metrics.get("pedidos_totais_global", 0),
+        "ticket_medio": metrics.get("ticket_medio_global", 0)
+    }
 
 def get_conversion_rates(r):
+    """Busca os dados de conversão e lida com o formato de lista ou dicionário."""
     carrinhos_criados_data = fetch_redis_data(r, "realtime:total_carrinhos_criados")
     carrinhos_convertidos_data = fetch_redis_data(r, "realtime:total_carrinhos_convertidos")
-    criados = carrinhos_criados_data.get('total', 0) if carrinhos_criados_data else 0
-    convertidos = carrinhos_convertidos_data.get('total', 0) if carrinhos_convertidos_data else 0
+
+    # Função auxiliar para extrair o total de forma segura
+    def get_total_from_data(data):
+        if not data:
+            return 0
+        
+        # Se for uma lista, pega o primeiro elemento
+        if isinstance(data, list) and len(data) > 0:
+            item = data[0]
+        else:
+            item = data
+
+        # Garante que o item é um dicionário antes de usar .get()
+        return item.get('total', 0) if isinstance(item, dict) else 0
+
+    criados = get_total_from_data(carrinhos_criados_data)
+    convertidos = get_total_from_data(carrinhos_convertidos_data)
+    
     taxa_conversao = (convertidos / criados * 100) if criados > 0 else 0
     taxa_abandono = 100 - taxa_conversao if criados > 0 else 0
+    
     return {
         "carrinhos_criados": criados,
         "carrinhos_convertidos": convertidos,
@@ -157,14 +188,13 @@ if 'previous_kpis' not in st.session_state:
 
 # Notificação inteligente
 if current_kpis != st.session_state['previous_kpis']:
-    st.toast('🚀 Novos dados chegaram!', icon='🚀')
+    st.toast('Novos dados chegaram!')
     st.session_state['previous_kpis'] = current_kpis
 else:
-    st.toast(f'Verificado às {last_update_time}. Sem novos dados.', icon='🔄')
+    st.toast(f'Verificado às {last_update_time}. Sem novos dados.')
 
 # --- Barra Lateral (Sidebar) ---
 with st.sidebar:
-    # st.image("../dash_image_old_pc.png", width=150)
     st.title("E-commerce Live View")
     st.markdown("---")
     st.markdown(f"**Última Verificação:** `{last_update_time}`")

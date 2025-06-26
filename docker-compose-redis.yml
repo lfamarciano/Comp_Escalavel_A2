@@ -1,0 +1,31 @@
+# docker-compose.yml
+# Define e orquestra toda a pilha de serviços com um único ficheiro.
+# > docker-compose up --build --scale producer=2
+
+version: '3.8'
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports: ["6379:6379"]
+    networks:
+      - app-net
+    volumes:
+      - redis-data:/data 
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+volumes:
+  redis-data:
+    driver: local
