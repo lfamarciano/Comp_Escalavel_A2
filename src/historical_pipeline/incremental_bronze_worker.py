@@ -5,7 +5,7 @@
 # Rode com:
 # spark-submit --packages io.delta:delta-spark_2.13:4.0.0 --jars C:\spark\jdbc\postgresql-42.7.7.jar src\historical-pipeline\ingestion_worker.py --conf spark.driver.log.level=WARN"
 
-# ingestion_worker.py
+# incremental_bronze_worker.py
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.utils import AnalysisException
@@ -17,15 +17,15 @@ import sys
 from pathlib import Path
 import threading
 
-# TODO: improve import logic
-sys.path.append("src")
-from config import (
-    POSTGRES_PASSWORD,
-    POSTGRES_DATABASE,
-    POSTGRES_USER,
-    POSTGRES_HOST,
-    POSTGRES_PORT
-)
+import os
+
+DELTALAKE_BASE_PATH = os.environ.get("DELTALAKE_BASE_PATH", "app/deltalake")
+JDBC_DRIVER_PATH = os.environ.get("JDBC_DRIVER_PATH", "/opt/spark/jars/postgresql-42.7.7.jar")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "123")
+POSTGRES_DATABASE = os.environ.get("POSTGRES_DATABASE", "ecommerce_db")
+POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
 
 def get_max_id_from_delta(spark: SparkSession, delta_path: str, id_column: str) -> int:
     """Busca o ID máximo de uma tabela Delta. Retorna 0 se a tabela não existir ou estiver vazia."""
@@ -52,7 +52,10 @@ def update_table_deltalake(spark: SparkSession, jdbc_url: str, table_name: str, 
     Função do worker que continuamente busca novos dados de uma tabela e os adiciona ao Delta Lake.
     O loop continua enquanto o evento 'shutdown_event' não for acionado.
     """
-    bronze_path = str(Path(f"deltalake/bronze/{table_name}"))
+    # bronze_path = str(Path(f"deltalake/bronze/{table_name}")) # local
+    bronze_path = f"{DELTALAKE_BASE_PATH}/bronze/{table_name}"
+
+    # Path(bronze_path).mkdir(exist_ok=True, parents=True)
 
     # Passo 3: O loop agora verifica o evento de parada.
     while not shutdown_event.is_set():
@@ -88,7 +91,8 @@ def main():
     Worker de longa duração que ingere dados incrementalmente do PostgreSQL para o Delta Lake.
     """
     # --- Configurando jdbc ---
-    jdbc_driver_path = Path("C:/spark/jdbc/postgresql-42.7.7.jar")
+    # jdbc_driver_path = Path("C:/spark/jdbc/postgresql-42.7.7.jar") # local
+    jdbc_driver_path = Path(JDBC_DRIVER_PATH)
     if not jdbc_driver_path.exists():
         raise FileNotFoundError(f"Arquivo do driver JDBC não foi encontrado em: {jdbc_driver_path}")
     jdbc_url = f"jdbc:postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE}"
@@ -135,8 +139,6 @@ def main():
     
     print("--- Iniciando Workers de Ingestão Contínua ---")
 
-    bronze_path = str(Path("deltalake/bronze/transacoes_vendas"))
-    
     for table, id_col in tables_to_process.items():
         # Criando, registrando e iniciando thread
         thread = threading.Thread(
