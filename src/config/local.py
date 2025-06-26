@@ -27,3 +27,6 @@ DB_CONFIG = json.loads(dotenv_dbconfig) if dotenv_dbconfig else {
     'database': 'ecommerce_db'
 }
 DB_NAME = DB_CONFIG['database'] if dotenv_dbconfig else 'ecommerce_db'
+
+JDBC_DRIVER_PATH = "/opt/spark/jars/postgresql-42.7.7.jar"
+DELTALAKE_BRONZE_PATH = "/app/deltalake/bronze"
