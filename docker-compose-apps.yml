@@ -50,4 +50,4 @@ services:
       producer: { condition: service_started }
     environment:
       PIPELINE_ENV: ${PIPELINE_ENV}
-    command: ["python", "persist_sim_consumer.py"]
+    command: ["python", "-u", "persist_sim_consumer.py"]
