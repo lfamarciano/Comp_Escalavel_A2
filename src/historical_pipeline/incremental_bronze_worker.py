@@ -134,6 +134,8 @@ def main():
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
         .getOrCreate()
     
+    spark.sparkContext.setLogLevel("WARN")
+
     print("--- Worker de Ingestão Contínua Iniciado ---")
     print(f"Verificando novos dados a cada {ingestion_interval_seconds} segundos. Pressione Ctrl+C para parar.")
     

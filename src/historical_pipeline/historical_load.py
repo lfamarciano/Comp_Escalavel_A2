@@ -17,6 +17,8 @@ def main():
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
         .getOrCreate()
     
+    spark.sparkContext.setLogLevel("WARN")
+
     db_properties = {
         "user": POSTGRES_USER,
         "password": POSTGRES_PASSWORD,
@@ -28,7 +30,7 @@ def main():
     if not base_path:
         raise ValueError("DELTALAKE_BASE_PATH environment variable not set!")
 
-    tables = ["transacoes_vendas", "eventos_web"]
+    tables = ["transacoes_vendas", "eventos_web", "dados_clientes", "catalogo_produtos"]
 
     print("--- Starting Full Historical Load ---")
     for table in tables:
