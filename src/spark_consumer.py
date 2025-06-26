@@ -10,7 +10,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 
 # Configurações
 try:
-    from config.local import KAFKA_HOST, REDIS_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
+    from config import KAFKA_HOST, REDIS_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
 except ImportError:
     KAFKA_HOST = os.environ.get('KAFKA_HOST', 'kafka:9092')
     REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')

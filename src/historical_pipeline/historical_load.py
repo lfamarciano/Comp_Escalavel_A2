@@ -5,11 +5,12 @@ from pyspark.sql import SparkSession
 from dotenv import load_dotenv
 load_dotenv()
 
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "123")
-POSTGRES_DATABASE = os.environ.get("POSTGRES_DATABASE", "ecommerce_db")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
+from config import POSTGRES_PASSWORD, POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT
+# POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "123")
+# POSTGRES_DATABASE = os.environ.get("POSTGRES_DATABASE", "ecommerce_db")
+# POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+# POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
+# POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
 
 def main():
     spark = SparkSession.builder.appName("HistoricalLoad") \
