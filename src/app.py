@@ -1,3 +1,5 @@
+#app.py
+
 import streamlit as st
 import redis
 import pandas as pd
@@ -7,24 +9,13 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
-import psycopg2
 
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
+# --- Configurações do Redis ---
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
+REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
 
-from config import (
-    POSTGRES_PASSWORD,
-    POSTGRES_DATABASE,
-    POSTGRES_USER,
-    POSTGRES_HOST,
-    POSTGRES_PORT,
-    REDIS_HOST,
-    REDIS_PORT
-)
-
-
-# Configurações da página
+# --- Configurações da Página ---
+# Define o título, ícone, layout e estado inicial da barra lateral do aplicativo Streamlit.
 st.set_page_config(
     page_title="Dashboard de E-commerce | Live + Histórico",
     page_icon="📊",
@@ -32,7 +23,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS personalizados
+# --- Estilos CSS Personalizados ---
+# Injeta CSS para criar cartões de métricas visualmente atraentes e estilizar outros elementos da interface.
 st.markdown("""
 <style>
 .metric-card {
@@ -43,7 +35,7 @@ st.markdown("""
     padding: 20px;
     margin: 10px;
     text-align: center;
-    height: 100%;
+    height: 100%; /* Garante que os cartões na mesma linha tenham a mesma altura */
 }
 .metric-card:hover {
     box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
@@ -56,7 +48,7 @@ st.markdown("""
 .metric-value {
     font-size: 36px;
     font-weight: bold;
-    color: #2E8B57;
+    color: #2E8B57; /* Verde para valores positivos */
 }
 .conversion-card-value {
     font-size: 28px;
@@ -65,17 +57,21 @@ st.markdown("""
     margin: 5px 0;
 }
 .abandon-value {
-    color: #DC143C;
+    color: #DC143C; /* Vermelho para valores de abandono */
 }
 .conversion-value {
-    color: #2E8B57;
+    color: #2E8B57; /* Verde para valores de conversão */
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Conexões com Bancos de Dados ---
+# --- Conexão com Redis ---
 @st.cache_resource
 def get_redis_connection():
+    """
+    Estabelece e armazena em cache a conexão com o Redis.
+    Retorna o objeto de conexão ou None em caso de falha.
+    """
     try:
         r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         r.ping()
@@ -85,55 +81,38 @@ def get_redis_connection():
         st.error(f"Não foi possível conectar ao Redis em '{REDIS_HOST}'. Detalhes: {e}")
         return None
 
-@st.cache_resource
-def get_postgres_connection():
-    try:
-        # CORRIGIDO: Usa as variáveis de ambiente para a conexão
-        conn = psycopg2.connect(
-            host=POSTGRES_HOST,
-            database=POSTGRES_DATABASE,
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
-            port=POSTGRES_PORT
-        )
-        print(f"Conexão com PostgreSQL ({POSTGRES_HOST}) estabelecida/reutilizada.")
-        return conn
-    except Exception as e:
-        st.error(f"Erro ao conectar ao PostgreSQL em '{POSTGRES_HOST}': {e}")
-        return None
-
-# --- Funções de busca de dados ---
+# --- Funções de Busca de Dados ---
 def fetch_redis_data(redis_conn, key):
+    """
+    Busca um dado do Redis pela chave e o desserializa de JSON.
+    Retorna o dado (dict/list) ou None se a chave não existir ou houver erro.
+    """
     if not redis_conn: return None
     data = redis_conn.get(key)
     if data:
         try:
             return json.loads(data)
         except json.JSONDecodeError:
+            # Lida com o caso de o dado não ser um JSON válido
             return None
     return None
 
-def query_postgres(query, conn):
-    try:
-        return pd.read_sql(query, conn)
-    except Exception as e:
-        st.error(f"Erro na consulta SQL: {e}")
-        return pd.DataFrame()
-
 def get_realtime_kpis(r):
-    """Busca as métricas globais e lida com o formato de lista ou dicionário."""
+    """
+    Busca as métricas globais em tempo real (Receita, Pedidos, Ticket Médio).
+    Lida com possíveis inconsistências no formato dos dados do Redis (lista vs. dict).
+    """
     metrics_data = fetch_redis_data(r, "realtime:metricas_globais")
-    metrics = {} # Inicia com um dicionário vazio por segurança
+    metrics = {} # Dicionário padrão
 
     if metrics_data:
-        # Se o dado do Redis for uma lista (devido ao bug de formato),
-        # pegamos o primeiro (e único) dicionário de dentro dela.
+        # Normaliza o dado para sempre ser um dicionário
         if isinstance(metrics_data, list) and len(metrics_data) > 0:
             metrics = metrics_data[0]
-        # Se já estiver no formato correto de dicionário, apenas usamos.
         elif isinstance(metrics_data, dict):
             metrics = metrics_data
 
+    # Retorna os KPIs com valores padrão de 0 caso não sejam encontrados
     return {
         "receita": metrics.get("receita_total_global", 0),
         "pedidos": metrics.get("pedidos_totais_global", 0),
@@ -141,22 +120,16 @@ def get_realtime_kpis(r):
     }
 
 def get_conversion_rates(r):
-    """Busca os dados de conversão e lida com o formato de lista ou dicionário."""
+    """
+    Busca e calcula as taxas de conversão e abandono de carrinho.
+    """
     carrinhos_criados_data = fetch_redis_data(r, "realtime:total_carrinhos_criados")
     carrinhos_convertidos_data = fetch_redis_data(r, "realtime:total_carrinhos_convertidos")
 
-    # Função auxiliar para extrair o total de forma segura
     def get_total_from_data(data):
-        if not data:
-            return 0
-        
-        # Se for uma lista, pega o primeiro elemento
-        if isinstance(data, list) and len(data) > 0:
-            item = data[0]
-        else:
-            item = data
-
-        # Garante que o item é um dicionário antes de usar .get()
+        """Função auxiliar para extrair o valor 'total' de forma segura."""
+        if not data: return 0
+        item = data[0] if isinstance(data, list) and len(data) > 0 else data
         return item.get('total', 0) if isinstance(item, dict) else 0
 
     criados = get_total_from_data(carrinhos_criados_data)
@@ -172,9 +145,9 @@ def get_conversion_rates(r):
         "taxa_abandono": taxa_abandono
     }
 
-# --- Inicialização ---
+# --- Inicialização e Auto-Refresh ---
 r = get_redis_connection()
-pg_conn = get_postgres_connection()
+# Recarrega a página a cada 5 segundos para buscar novos dados
 st_autorefresh(interval=5000, key="data_refresher")
 
 # Busca os dados atuais
@@ -182,11 +155,11 @@ current_kpis = get_realtime_kpis(r)
 current_rates = get_conversion_rates(r)
 last_update_time = datetime.now().strftime('%H:%M:%S')
 
-# Inicializa o estado da sessão para comparação
+# Inicializa o estado da sessão para comparação e notificações
 if 'previous_kpis' not in st.session_state:
     st.session_state['previous_kpis'] = current_kpis
 
-# Notificação inteligente
+# Notificação inteligente para o usuário
 if current_kpis != st.session_state['previous_kpis']:
     st.toast('Novos dados chegaram!')
     st.session_state['previous_kpis'] = current_kpis
@@ -203,9 +176,9 @@ with st.sidebar:
 # --- Interface Principal do Dashboard ---
 st.title("Dashboard Completo de E-commerce")
 
-if not r or not pg_conn:
+if not r:
     st.warning("Aguardando conexão com as fontes de dados...")
-    st.stop()
+    st.stop() # Interrompe a execução se não houver conexão com o Redis
 
 # Seção 1: Métricas em Tempo Real
 st.markdown("## Métricas em Tempo Real")
@@ -222,7 +195,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 # Funil de Conversão
 st.subheader("Análise do Funil de Conversão")
 col1, col2, col3 = st.columns(3)
-
 with col1:
     st.markdown(f"""
     <div class="metric-card">
@@ -231,7 +203,6 @@ with col1:
         <p class="conversion-card-value"><strong>{current_rates['carrinhos_convertidos']:,}</strong> Compras Concluídas</p>
     </div>
     """, unsafe_allow_html=True)
-
 with col2:
     st.markdown(f"""
     <div class="metric-card">
@@ -239,7 +210,6 @@ with col2:
         <p class="metric-value conversion-value">{current_rates['taxa_conversao']:.2f}%</p>
     </div>
     """, unsafe_allow_html=True)
-
 with col3:
     st.markdown(f"""
     <div class="metric-card">
@@ -248,21 +218,21 @@ with col3:
     </div>
     """, unsafe_allow_html=True)
 
-
 # Gráficos em Tempo Real
 st.markdown("---")
 st.subheader("Visualizações em Tempo Real")
-col1, col2 = st.columns([6, 4])
+col1, col2 = st.columns([6, 4]) # Colunas com proporções diferentes
 
 with col1:
     receita_categoria_data = fetch_redis_data(r, "realtime:receita_por_categoria")
     if receita_categoria_data:
         df_cat = pd.DataFrame(receita_categoria_data).sort_values("receita", ascending=False)
-        fig_bar = px.bar(df_cat, x="receita", y="categoria", orientation='h', 
-                        text='receita', template="seaborn", 
-                        labels={"receita": "Receita (R$)", "categoria": "Categoria"})
+        fig_bar = px.bar(df_cat, x="receita", y="categoria", orientation='h',
+                         text='receita', template="seaborn",
+                         labels={"receita": "Receita (R$)", "categoria": "Categoria"},
+                         title="Receita por Categoria")
         fig_bar.update_traces(texttemplate='R$ %{text:,.2f}', textposition='outside', marker_color='#4682B4')
-        fig_bar.update_layout(yaxis={'categoryorder':'total ascending'}, title="Receita por Categoria")
+        fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(fig_bar, use_container_width=True)
     else:
         st.info("Aguardando dados de receita por categoria...")
@@ -272,9 +242,9 @@ with col2:
     if top_produtos_data:
         df_top = pd.DataFrame(top_produtos_data).rename(columns={"item": "Produto", "total_vendido": "Qtd. Vendida"})
         st.dataframe(df_top.style.format({"Qtd. Vendida": "{:,}"})
-                   .background_gradient(cmap='Greens', subset=['Qtd. Vendida'])
-                   .set_caption("Top 5 Produtos Mais Vendidos"), 
-                   use_container_width=True)
+                      .background_gradient(cmap='Greens', subset=['Qtd. Vendida'])
+                      .set_caption("Top 5 Produtos Mais Vendidos"),
+                      use_container_width=True)
     else:
         st.info("Aguardando dados de produtos mais vendidos...")
 
@@ -283,225 +253,102 @@ st.markdown("---")
 st.markdown("## Análise Histórica")
 
 # Abas para organizar as análises históricas
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Crescimento Mensal", "Sazonalidade", "Abandono", "LTV", "Sazonalidade2"])
+tab1, tab2, tab3 = st.tabs(["Crescimento de Receita Diário", "Top Produtos por Trimestre", "Taxa de Conversão Histórica"])
 
 with tab1:
-    st.subheader("Crescimento da Receita Mês a Mês")
-    query_crescimento = """
-        SELECT 
-            DATE_TRUNC('month', data_compra) as mes,
-            SUM(valor_total_compra) as receita,
-            LAG(SUM(valor_total_compra), 1) OVER (ORDER BY DATE_TRUNC('month', data_compra)) as receita_anterior,
-            (SUM(valor_total_compra) - LAG(SUM(valor_total_compra), 1) OVER (ORDER BY DATE_TRUNC('month', data_compra))) / 
-     LAG(SUM(valor_total_compra), 1) OVER (ORDER BY DATE_TRUNC('month', data_compra)) * 100 as crescimento
-        FROM transacoes_vendas
-        GROUP BY mes
-        ORDER BY mes DESC
-        LIMIT 12
-    """
-    df_crescimento = query_postgres(query_crescimento, pg_conn)
+    st.subheader("Evolução da Receita Diária por Segmento de Cliente")
+    df_crescimento_data_str = fetch_redis_data(r, "historical:daily_revenue_metrics")
+    df_crescimento_data = json.loads(df_crescimento_data_str)
     
-    if not df_crescimento.empty:
-        fig = px.line(df_crescimento, x='mes', y='crescimento',
-                     title='Crescimento Percentual Mês a Mês',
-                     labels={'mes': 'Mês', 'crescimento': 'Crescimento (%)'})
-        fig.add_hline(y=0, line_dash="dash", line_color="red")
-        st.plotly_chart(fig, use_container_width=True)
+    if df_crescimento_data:
+        df_crescimento = pd.DataFrame(df_crescimento_data)
+        # Converte a coluna de data para o formato datetime, essencial para gráficos de séries temporais
+        df_crescimento['data'] = pd.to_datetime(df_crescimento['data'])
+        df_crescimento = df_crescimento.sort_values('data')
+
+        # Cria o gráfico de linhas com Plotly Express
+        fig_line = px.line(df_crescimento,
+                           x='data',
+                           y='receita_total_diaria',
+                           color='segmento_cliente', # Cria uma linha para cada segmento
+                           title="Receita Diária por Segmento de Cliente",
+                           labels={'data': 'Data', 'receita_total_diaria': 'Receita Total (R$)', 'segmento_cliente': 'Segmento'},
+                           markers=True) # Adiciona marcadores para cada ponto de dado
         
-        # Detalhes em tabela
-        st.dataframe(df_crescimento.style.format({
-            'mes': lambda x: x.strftime('%Y-%m'),
-            'receita': "R${:,.2f}",
-            'receita_anterior': "R${:,.2f}",
-            'crescimento': "{:.1f}%"
-        }))
+        fig_line.update_layout(legend_title_text='Segmento')
+        st.plotly_chart(fig_line, use_container_width=True)
     else:
-        st.warning("Nenhum dado disponível para análise de crescimento")
+        st.info("Aguardando dados históricos de crescimento de receita...")
 
 with tab2:
-    st.subheader("Produtos Mais Vendidos")
-    query_sazonal = """
-        WITH vendas_trimestrais AS (
-            SELECT 
-                p.nome_produto,
-                DATE_TRUNC('quarter', t.data_compra) as trimestre,
-                COUNT(*) as vendas,
-                ROW_NUMBER() OVER (PARTITION BY DATE_TRUNC('quarter', t.data_compra) ORDER BY COUNT(*) DESC) as rank
-            FROM transacoes_vendas t
-            JOIN catalogo_produtos p ON t.id_produto = p.id_produto
-            WHERE t.data_compra >= NOW() - INTERVAL '1 year'
-            GROUP BY p.nome_produto, trimestre
-        )
-        SELECT trimestre, nome_produto, vendas
-        FROM vendas_trimestrais
-        WHERE rank <= 10
-        ORDER BY trimestre DESC, vendas DESC
-    """
-    df_sazonal = query_postgres(query_sazonal, pg_conn)
+    st.subheader("Top 10 Produtos Mais Vendidos por Período")
+    df_top_prod_data_str = fetch_redis_data(r, "historical:top_products_quarterly")
+    df_top_prod_data = json.loads(df_top_prod_data_str)
 
-    if not df_sazonal.empty:
-        df_sazonal['trimestre'] = df_sazonal['trimestre'].dt.strftime('%Y-Q%q')
-        fig = px.bar(df_sazonal, x='trimestre', y='vendas', color='nome_produto',
-                    title='Top 10 Produtos por Trimestre',
-                    labels={'trimestre': 'Trimestre', 'vendas': 'Vendas', 'nome_produto': 'Produto'})
-        st.plotly_chart(fig, use_container_width=True)
+    if df_top_prod_data:
+        df_top_prod = pd.DataFrame(df_top_prod_data)
+        
+        # Cria filtros para ano e trimestre
+        col_filter1, col_filter2 = st.columns(2)
+        anos = sorted(df_top_prod['ano'].unique())
+        ano_selecionado = col_filter1.selectbox("Selecione o Ano", options=anos, index=len(anos)-1)
+        
+        trimestres = sorted(df_top_prod[df_top_prod['ano'] == ano_selecionado]['trimestre'].unique())
+        trimestre_selecionado = col_filter2.selectbox("Selecione o Trimestre", options=trimestres, index=len(trimestres)-1)
+
+        # Filtra o DataFrame com base na seleção do usuário
+        df_filtrado = df_top_prod[(df_top_prod['ano'] == ano_selecionado) & (df_top_prod['trimestre'] == trimestre_selecionado)]
+
+        # Cria o gráfico de barras horizontais
+        fig_bar_prod = px.bar(df_filtrado,
+                              x='unidades_vendidas',
+                              y='nome_produto',
+                              orientation='h',
+                              title=f"Top Produtos - {trimestre_selecionado}º Tri de {ano_selecionado}",
+                              labels={'unidades_vendidas': 'Unidades Vendidas', 'nome_produto': 'Produto'},
+                              text='unidades_vendidas',
+                              template='plotly_white')
+        
+        fig_bar_prod.update_layout(yaxis={'categoryorder':'total ascending'}) # Ordena do menor para o maior
+        fig_bar_prod.update_traces(textposition='outside', marker_color='#2E8B57')
+        st.plotly_chart(fig_bar_prod, use_container_width=True)
+
     else:
-        st.warning("Nenhum dado disponível para análise sazonal")
+        st.info("Aguardando dados históricos de top produtos...")
 
 with tab3:
-    st.subheader("Taxa de Abandono de Carrinho")
-    query_abandono = """
-        WITH carrinhos_criados AS (
-            SELECT DISTINCT id_carrinho 
-            FROM eventos_web 
-            WHERE tipo_evento = 'carrinho_criado' AND id_carrinho IS NOT NULL
-        ),
-        carrinhos_convertidos AS (
-            SELECT DISTINCT id_carrinho 
-            FROM transacoes_vendas 
-            WHERE id_carrinho IS NOT NULL
-        )
-        SELECT 
-            (SELECT COUNT(*) FROM carrinhos_criados) as total_carrinhos,
-            (SELECT COUNT(*) FROM carrinhos_criados cc 
-             WHERE NOT EXISTS (
-                 SELECT 1 FROM carrinhos_convertidos cv WHERE cv.id_carrinho = cc.id_carrinho
-             )) as carrinhos_abandonados,
-            ((SELECT COUNT(*) FROM carrinhos_criados cc 
-              WHERE NOT EXISTS (
-                  SELECT 1 FROM carrinhos_convertidos cv WHERE cv.id_carrinho = cc.id_carrinho
-              )) * 100.0 / NULLIF((SELECT COUNT(*) FROM carrinhos_criados), 0)) as taxa_abandono
-    """
-    df_abandono = query_postgres(query_abandono, pg_conn)
+    st.subheader("Taxa de Conversão de Carrinho (Histórico)")
+    # O valor da taxa de conversão é buscado diretamente. 
+    # Se tivéssemos a de abandono, a conversão seria 100 - abandono.
+    taxa_conversao_hist_str = fetch_redis_data(r, "historical:cart_conversion_rate")
+    taxa_conversao_hist = float(taxa_conversao_hist_str)
 
-    if not df_abandono.empty:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Carrinhos Criados (Histórico)", f"{df_abandono.iloc[0]['total_carrinhos']:,}")
-        with col2:
-            st.metric("Taxa de Abandono (Histórico)", f"{df_abandono.iloc[0]['taxa_abandono']:.1f}%")
-        
-        # Comparação com taxa em tempo real
-        st.markdown("**Comparação com Taxa em Tempo Real**")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Taxa Atual", f"{current_rates['taxa_abandono']:.1f}%")
-        with col2:
-            diff = current_rates['taxa_abandono'] - df_abandono.iloc[0]['taxa_abandono']
-            st.metric("Diferença", f"{diff:.1f}%", delta=f"{diff:.1f}%")
+    # Garante que temos um valor numérico para exibir
+    if isinstance(taxa_conversao_hist, (int, float)):
+        # Cria o gráfico de medidor (gauge)
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = taxa_conversao_hist,
+            title = {'text': "Taxa de Conversão Média (%)"},
+            gauge = {
+                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                'bar': {'color': "#2E8B57"},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "gray",
+                'steps': [
+                    {'range': [0, 25], 'color': '#FF7F7F'},
+                    {'range': [25, 50], 'color': '#FFD700'}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 30  # Exemplo de meta
+                }
+            }
+        ))
+        fig_gauge.update_layout(font = {'color': "darkblue", 'family': "Arial"})
+        st.plotly_chart(fig_gauge, use_container_width=True)
     else:
-        st.warning("Nenhum dado disponível para cálculo de abandono histórico")
+        st.info("Aguardando dados históricos da taxa de conversão...")
 
-with tab4:
-    st.subheader("Valor do Tempo de Vida do Cliente (LTV) por Segmento")
-    query_ltv = """
-        SELECT 
-            dc.segmento_cliente,
-            COUNT(DISTINCT dc.id_usuario) as total_clientes,
-            SUM(tv.valor_total_compra) as receita_total,
-            SUM(tv.valor_total_compra) / NULLIF(COUNT(DISTINCT dc.id_usuario), 0) as ltv
-        FROM dados_clientes dc
-        LEFT JOIN transacoes_vendas tv ON dc.id_usuario = tv.id_usuario
-        GROUP BY dc.segmento_cliente
-        ORDER BY ltv DESC
-    """
-    df_ltv = query_postgres(query_ltv, pg_conn)
-
-    if not df_ltv.empty:
-        fig = px.bar(df_ltv, x='segmento_cliente', y='ltv',
-                    title='Valor do Tempo de Vida (LTV) por Segmento',
-                    labels={'segmento_cliente': 'Segmento', 'ltv': 'LTV (R$)'})
-        st.plotly_chart(fig, use_container_width=True)
-        
-        st.dataframe(df_ltv.style.format({
-            'total_clientes': "{:,}",
-            'receita_total': "R${:,.2f}",
-            'ltv': "R${:,.2f}"
-        }))
-    else:
-        st.warning("Nenhum dado disponível para cálculo de LTV")
-
-with tab5:
-    st.subheader("Análise Sazonal de Produtos")
-    
-    query_sazonal = """
-        WITH vendas_mensais AS (
-            SELECT 
-                p.nome_produto,
-                DATE_TRUNC('month', t.data_compra) as mes,
-                COUNT(*) as vendas,
-                ROW_NUMBER() OVER (PARTITION BY DATE_TRUNC('month', t.data_compra) ORDER BY COUNT(*) DESC) as rank
-            FROM transacoes_vendas t
-            JOIN catalogo_produtos p ON t.id_produto = p.id_produto
-            WHERE t.data_compra >= NOW() - INTERVAL '2 years'
-            GROUP BY p.nome_produto, mes
-        )
-        SELECT 
-            mes,
-            nome_produto,
-            vendas,
-            TO_CHAR(mes, 'YYYY-Q') || EXTRACT(QUARTER FROM mes) as trimestre
-        FROM vendas_mensais
-        WHERE rank <= 5  -- Top 5 por mês para não poluir o gráfico
-        ORDER BY mes DESC, vendas DESC
-    """
-    
-    df_sazonal = query_postgres(query_sazonal, pg_conn)
-
-    if not df_sazonal.empty:
-        # Pré-processamento
-        df_sazonal['mes_formatado'] = df_sazonal['mes'].dt.strftime('%Y-%m')
-        df_pivot = df_sazonal.pivot_table(index='nome_produto', 
-                                        columns='mes_formatado', 
-                                        values='vendas', 
-                                        fill_value=0)
-        
-        # Normalização para melhor visualização (opcional)
-        df_normalized = df_pivot.div(df_pivot.max(axis=1), axis=0)
-        
-        # Heatmap interativo
-        fig = px.imshow(
-            df_normalized,
-            labels=dict(x="Mês", y="Produto", color="Vendas Normalizadas"),
-            color_continuous_scale='tealrose',  # Escala de cores moderna
-            aspect="auto",
-            title='Padrões Sazonais: Vendas Normalizadas por Produto (Top 5 mensal)'
-        )
-        
-        # Ajustes finais
-        fig.update_layout(
-            xaxis_title="Período",
-            yaxis_title="Produto",
-            coloraxis_colorbar=dict(title="Intensidade"),
-            height=600  # Altura aumentada para melhor visualização
-        )
-        
-        # Adicionar interatividade avançada
-        fig.update_traces(
-            hovertemplate="<b>%{y}</b><br>Mês: %{x}<br>Intensidade: %{z:.2f}<extra></extra>"
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Opcional: Gráfico de linha complementar para os top 3 produtos
-        top_products = df_sazonal.groupby('nome_produto')['vendas'].sum().nlargest(3).index
-        if len(top_products) > 0:
-            st.markdown("### Tendência dos 3 Produtos Mais Vendidos")
-            fig_line = px.line(
-                df_sazonal[df_sazonal['nome_produto'].isin(top_products)],
-                x='mes',
-                y='vendas',
-                color='nome_produto',
-                line_shape='spline',
-                markers=True,
-                labels={'vendas': 'Vendas', 'mes': 'Mês'},
-                title='Evolução Mensal'
-            )
-            fig_line.update_layout(hovermode='x unified')
-            st.plotly_chart(fig_line, use_container_width=True)
-            
-    else:
-        st.warning("Nenhum dado disponível para análise sazonal")
-# Rodapé
-st.markdown("---")
-st.markdown("Dashboard desenvolvido para o Avaliação 2 de Computação Escalável - FGV 2025.1")
