@@ -25,3 +25,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 5
+
+volumes:
+  redis-data:
+    driver: local
