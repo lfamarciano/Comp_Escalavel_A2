@@ -40,13 +40,21 @@ def main():
     for table in tables:
         print(f"Processing table: {table}...")
         
-        # 1. Read the ENTIRE table from PostgreSQL
+        # 1. Lê os dados do PostgreSQL
         df = spark.read.jdbc(url=jdbc_url, table=table, properties=db_properties)
         
-        # 2. OVERWRITE the Delta table with the full dataset
+        # --- OTIMIZAÇÃO AQUI ---
+        # 2. Guarda o DataFrame em memória para evitar releituras.
+        df.cache()
+
         delta_path = f"{base_path}/bronze/{table}"
+        
+        # 3. Agora o .count() e o .write() usarão os dados em memória, que é muito mais rápido.
         print(f"Writing {df.count()} rows to {delta_path} in overwrite mode.")
         df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(delta_path)
+        
+        # 4. Libera o DataFrame da memória para a próxima iteração do loop.
+        df.unpersist()
         
         print(f"Table {table} loaded successfully.")
 

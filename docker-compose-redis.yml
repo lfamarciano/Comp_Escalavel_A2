@@ -11,6 +11,8 @@ networks:
 volumes:
   postgres-data:
     driver: local
+  redis-data:
+    driver: local
 
 services:
   redis:
@@ -25,7 +27,3 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 5
-
-volumes:
-  redis-data:
-    driver: local
