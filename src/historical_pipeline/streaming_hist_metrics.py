@@ -1,4 +1,4 @@
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, Window
 from pyspark.sql import functions as F
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.types import (
@@ -14,7 +14,7 @@ from delta.tables import DeltaTable
 from pathlib import Path
 import redis
 
-from publish_to_redis import publish_dataframe_to_redis
+from publish_to_redis import publish_dataframe_to_redis, publish_metric_to_redis
 
 import os
 from dotenv import load_dotenv
@@ -26,6 +26,8 @@ bronze_path = f"{DELTALAKE_BASE_PATH}/bronze"
 gold_path = f"{DELTALAKE_BASE_PATH}/gold"
 bronze_tv_path = f"{bronze_path}/transacoes_vendas"
 bronze_dc_path = f"{bronze_path}/dados_clientes"
+bronze_cp_path = f"{bronze_path}/catalogo_produtos"
+bronze_ew_path = f"{bronze_path}/eventos_web"
 
 # --- Schemas das tabelas ---
 GOLD_TABLES_SCHEMAS = {
@@ -37,18 +39,32 @@ GOLD_TABLES_SCHEMAS = {
         StructField("crescimento_receita_d-1", DoubleType(), True)
     ]),
     
-    "produtos_mais_vendidos": StructType([
-        # Schema para a métrica de produtos mais vendidos
-        StructField("ano", IntegerType(), True),
-        StructField("trimestre", IntegerType(), True),
-        StructField("rank", IntegerType(), True),
-        StructField("id_produto", StringType(), True), # Assumindo que o ID do produto é string/UUID
-        StructField("nome_produto", StringType(), True),
+    "produtos_top10_trimestral": StructType([
+        StructField("ano", IntegerType(), False),
+        StructField("trimestre", IntegerType(), False),
+        StructField("rank", IntegerType(), False),
+        StructField("id_produto", StringType(), False),
+        StructField("nome_produto", StringType(), True), # Vem do join
         StructField("unidades_vendidas", LongType(), True)
+    ]),
+
+    "produtos_agregados_trimestral": StructType([
+        StructField("ano", IntegerType(), False),
+        StructField("trimestre", IntegerType(), False),
+        StructField("id_produto", StringType(), False),
+        StructField("unidades_vendidas", LongType(), True)
+    ]),
+
+    "carrinhos_criados": StructType([
+        StructField("id_carrinho", StringType(), False)
+    ]),
+
+    "carrinhos_finalizados": StructType([
+        StructField("id_carrinho", StringType(), False)
     ])
 }
 
-def upsert_daily_metrics(micro_batch_df: DataFrame, epoch_id: int):
+def upsert_daily_revenue(micro_batch_df: DataFrame, epoch_id: int):
     """
     Função chamada para cada micro-lote do streaming.
     Calcula o crescimento e faz o MERGE na tabela Delta Gold e publica no Redis.
@@ -144,6 +160,145 @@ def upsert_daily_metrics(micro_batch_df: DataFrame, epoch_id: int):
 
     micro_batch_df.unpersist()
 
+def upsert_most_sold_products(micro_batch_df: DataFrame, epoch_id: int):
+    """
+    Função foreachBatch para calcular e atualizar o ranking de produtos mais vendidos por trimestre.
+    """
+    spark = micro_batch_df.sparkSession
+    gold_agregados_path = f"{gold_path}/produtos_agregados_trimestral"
+    gold_top10_path = f"{gold_path}/produtos_top10_trimestral"
+
+    print(f"\n--- [Produtos] Processando Micro-Lote ID: {epoch_id} ---")
+
+    # Pré-processando o micro-lote para obter as vendas por produto/trimestre
+    updates_df = micro_batch_df.withColumn("ano", F.year("data_compra")) \
+                                .withColumn("trimestre", F.quarter("data_compra")) \
+                                .groupBy("ano", "trimestre", "id_produto") \
+                                .agg(F.sum("quantidade_produto").alias("unidades_vendidas_update"))
+    
+    updates_df.persist()
+
+    if updates_df.count() == 0:
+        print(f"[Produtos] Lote vazio. Pulando.")
+        updates_df.unpersist()
+        return
+
+    # Fazendo merge na tabela de agregados para atualizar os totais
+    tabela_agregados = DeltaTable.forPath(spark, gold_agregados_path)
+    
+    print("[Produtos] Realizando MERGE na tabela de agregados...")
+    tabela_agregados.alias("target").merge(
+        source=updates_df.alias("source"),
+        condition="target.ano = source.ano AND target.trimestre = source.trimestre AND target.id_produto = source.id_produto"
+    ).whenMatchedUpdate(
+        set={"unidades_vendidas": F.col("target.unidades_vendidas") + F.col("source.unidades_vendidas_update")}
+    ).whenNotMatchedInsert(
+        values={
+            "ano": "source.ano",
+            "trimestre": "source.trimestre",
+            "id_produto": "source.id_produto",
+            "unidades_vendidas": "source.unidades_vendidas_update"
+        }
+    ).execute()
+    print("[Produtos] MERGE de agregados concluído.")
+    
+    # -- Recalculando o TOP 10 para os trimestres que foram atualizados --
+    # Identifica os trimestres afetados neste lote
+    trimestres_afetados = updates_df.select("ano", "trimestre").distinct().collect()
+    filtro_trimestres = " OR ".join([f"(ano = {row.ano} AND trimestre = {row.trimestre})" for row in trimestres_afetados])
+    # Lendo a tabela de agregados completa, mas filtrada para os trimestres relevantes
+    agregados_atualizados_df = spark.read.format("delta").load(gold_agregados_path).filter(filtro_trimestres)
+    # Lendo a tabela estática de produtos para obter os nomes
+    produtos_static_df = spark.read.format("delta").load(bronze_cp_path)
+    # Janela para calcular o ranking
+    window_spec = Window.partitionBy("ano", "trimestre").orderBy(F.desc("unidades_vendidas"))
+    # Calcula o ranking, junta para obter nomes e filtra o TOP 10
+    top_10_df = agregados_atualizados_df.withColumn("rank", F.row_number().over(window_spec)) \
+                                        .filter(F.col("rank") <= 10) \
+                                        .join(produtos_static_df, "id_produto", "left") \
+                                        .select(
+                                            "ano", "trimestre", "rank", "id_produto",
+                                            "nome_produto", "unidades_vendidas"
+                                        )
+    
+    # Salvando na tabela gold, usando merge novamente para atualizar rankings dos semestres
+    print("[Produtos] Salvando ranking TOP 10 na tabela final...")
+    DeltaTable.forPath(spark, gold_top10_path).alias("target").merge(
+        source=top_10_df.alias("source"),
+        condition="target.ano = source.ano AND target.trimestre = source.trimestre AND target.id_produto = source.id_produto"
+    ).whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()
+
+    # Publicando no Redis
+    latest_top10_df = spark.read.format("delta").load(gold_top10_path).orderBy(F.desc("ano"), F.desc("trimestre"), "rank")
+    publish_dataframe_to_redis(latest_top10_df, "historical:top10_products_quarterly")
+    print("[Produtos] Ranking TOP 10 publicado no Redis.")
+    
+    updates_df.unpersist()
+
+def update_created_carts(micro_batch_df: DataFrame, epoch_id: int):
+    """
+    Registra os IDs de carrinhos recém-criados na tabela de estado 'carrinhos_criados'.
+    """
+    spark = micro_batch_df.sparkSession
+    gold_created_carts_path = f"{gold_path}/carrinhos_criados"
+    
+    print(f"\n--- [Carrinhos Criados] Processando Micro-Lote ID: {epoch_id} ---")
+
+    # Apenas insere os novos IDs se eles ainda não existirem.
+    DeltaTable.forPath(spark, gold_created_carts_path).alias("target").merge(
+        source=micro_batch_df.alias("source"),
+        condition="target.id_carrinho = source.id_carrinho"
+    ).whenNotMatchedInsertAll().execute()
+    
+    print(f"[Carrinhos Criados] {micro_batch_df.count()} novos registros de carrinhos processados.")
+
+
+def update_finished_carts_and_calc_rate(micro_batch_df: DataFrame, epoch_id: int):
+    """
+    Registra os IDs de carrinhos finalizados e, em seguida, recalcula e publica
+    a taxa de abandono de carrinho global.
+    """
+    spark = micro_batch_df.sparkSession
+    gold_created_carts_path = f"{gold_path}/carrinhos_criados"
+    gold_finished_carts_path = f"{gold_path}/carrinhos_finalizados"
+
+    print(f"\n--- [Carrinhos Finalizados] Processando Micro-Lote ID: {epoch_id} ---")
+
+    # Atualizando tabela de estado de carrinhos finalizados
+    DeltaTable.forPath(spark, gold_finished_carts_path).alias("target").merge(
+        source=micro_batch_df.alias("source"),
+        condition="target.id_carrinho = source.id_carrinho"
+    ).whenNotMatchedInsertAll().execute()
+    
+    print(f"[Carrinhos Finalizados] {micro_batch_df.count()} novos carrinhos finalizados registrados.")
+
+    # Recalculando taxa de abandono global
+    print("[Taxa Abandono] Calculando a taxa global...")
+    # Lendo estado completo de ambas as tabelas
+    all_created_carts_df = spark.read.format("delta").load(gold_created_carts_path)
+    all_finished_carts_df = spark.read.format("delta").load(gold_finished_carts_path)
+    all_created_carts_df.cache()
+    total_carrinhos_criados = all_created_carts_df.count()
+    if total_carrinhos_criados == 0:
+        taxa_abandono = 0.0
+    else:
+        # Encontrando carrinhos criados mas nunca finalizados
+        abandoned_carts_df = all_created_carts_df.join(
+            all_finished_carts_df,
+            on="id_carrinho",
+            how="left_anti"
+        )
+        total_carrinhos_abandonados = abandoned_carts_df.count()
+        
+        taxa_abandono = (total_carrinhos_abandonados / total_carrinhos_criados) * 100
+
+    all_created_carts_df.unpersist()
+    
+    # Publicando a métrica no Redis
+    print(f"[Taxa Abandono] Taxa de Abandono de Carrinho Atual: {taxa_abandono:.2f}%")
+    publish_metric_to_redis(f"{taxa_abandono:.2f}", "historical:abandoned_cart_rate")
+    print("[Taxa Abandono] Métrica publicada no Redis.")
+
 def boostrap_gold_layer(spark: SparkSession, gold_path: str, schemas_config: dict):
     """
     Verifica a existência da tabela gold e a cria caso não exista.
@@ -154,7 +309,7 @@ def boostrap_gold_layer(spark: SparkSession, gold_path: str, schemas_config: dic
 
         if DeltaTable.isDeltaTable(spark, table_path):
             print(f"[Bootstrap] Tabela Gold '{table_path}' já existe. Nada a fazer.")
-            return
+            continue
 
         else:
             print(f"[Bootstrap] Tabela Gold '{table_path}' não encontrada. Criando tabela vazia.")
@@ -179,11 +334,20 @@ def main ():
     
     # --- Lendo dados da camada bronze como stream ---
     streaming_options = {"ignoreDeletes": "true", "ignoreChanges": "true"}
+    # -- Dataframes de stream --
     transacoes_stream_df = spark.readStream.format("delta").options(**streaming_options).load(bronze_tv_path)
+    eventos_web_stream_df = spark.readStream.format("delta").options(**streaming_options).load(bronze_ew_path)
+    # -- Dataframes estáticos --
     # Tabela de clientes não muda, então lemos como estática
     clientes_static_df = spark.read.format("delta").load(bronze_dc_path)
+    # Assim como a tabela de produtos
+    produtos_static_df = spark.read.format("delta").load(bronze_cp_path)
 
+    # --- Streams ---
+    # Definindo o caminho do checkpoint de forma absoluta
+    # -- Receita diária --
     # Juntando stream com tabela estática de clientes e calculando agregado diário
+    checkpoint_receita_path = f"{DELTALAKE_BASE_PATH}/checkpoints/streaming_receita_metrics"
     daily_revenue_stream_df = transacoes_stream_df \
         .join(clientes_static_df, "id_usuario", "left") \
         .withColumn("data", F.to_date(F.col("data_compra"))) \
@@ -192,20 +356,50 @@ def main ():
             F.sum("valor_total_compra").alias("receita_total_diaria"),
             F.count("id_transacao").alias("numero_de_pedidos")
         )
-
-    # Definindo o caminho do checkpoint de forma absoluta
-    checkpoint_path = f"{DELTALAKE_BASE_PATH}/checkpoints/streaming_hist_metrics"
-
     # Calculando crescimento com upsert
     daily_revenue_query = daily_revenue_stream_df.writeStream \
-        .foreachBatch(upsert_daily_metrics) \
+        .foreachBatch(upsert_daily_revenue) \
         .outputMode("update") \
-        .option("checkpointLocation", checkpoint_path) \
+        .option("checkpointLocation", checkpoint_receita_path) \
+        .start()
+    # -- Produtos mais vendidos --
+    checkpoint_produtos_path = f"{DELTALAKE_BASE_PATH}/checkpoints/streaming_produtos_metrics"
+    most_sold_products_query = transacoes_stream_df.writeStream \
+        .foreachBatch(upsert_most_sold_products) \
+        .outputMode("update") \
+        .option("checkpointLocation", checkpoint_produtos_path) \
+        .start()
+    # -- Taxa de abandono de carrinho --
+    # - Carrinhos criados -
+    checkpoint_created_carts_path = f"{DELTALAKE_BASE_PATH}/checkpoints/streaming_created_carts"
+    created_carts_stream_df = eventos_web_stream_df \
+        .filter(F.col("tipo_evento") == "carrinho_criado") \
+        .select("id_carrinho") \
+        .distinct()
+    created_carts_query = created_carts_stream_df.writeStream \
+        .foreachBatch(update_created_carts) \
+        .outputMode("update") \
+        .option("checkpointLocation", checkpoint_created_carts_path) \
+        .start()
+    # - Carrinhos finalizados e cálculo da taxa -
+    finished_carts_stream_df = transacoes_stream_df \
+        .select("id_carrinho") \
+        .distinct()
+    checkpoint_finished_carts_path = f"{DELTALAKE_BASE_PATH}/checkpoints/streaming_finished_carts"
+    finished_carts_query = finished_carts_stream_df.writeStream \
+        .foreachBatch(update_finished_carts_and_calc_rate) \
+        .outputMode("update") \
+        .option("checkpointLocation", checkpoint_finished_carts_path) \
         .start()
 
-    print("--- Todos os streams foram iniciados ---")
+    print("\n--- Todos os streams foram iniciados ---")
     daily_revenue_query.awaitTermination()
+    most_sold_products_query.awaitTermination()
+    created_carts_query.awaitTermination()
+    finished_carts_query.awaitTermination()
 
 if __name__ == "__main__":
-    spark = SparkSession.getActiveSession()
     main()
+    # for table_name, schema in GOLD_TABLES_SCHEMAS.items():
+    #     print("")
+    #     print(table_name, schema)
