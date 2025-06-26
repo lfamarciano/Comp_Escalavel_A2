@@ -36,12 +36,17 @@ FROM java-base AS app-spark
 WORKDIR /opt/spark
 ENV SPARK_VERSION=4.0.0
 ENV HADOOP_VERSION=3
+ENV POSTGRES_JDBC_VERSION=42.7.7
+
 # Usando URL do CDN, mais rápido e confiável
 RUN curl -fSLO "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz" && \
-    tar -xzf "spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz" --strip-components=1 && \
-    rm "spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz"
+tar -xzf "spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz" --strip-components=1 && \
+rm "spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz"
+# Adicionando drive JDBC do PostgreSQL
+RUN curl -fSL -o "/opt/spark/jars/postgresql-${POSTGRES_JDBC_VERSION}.jar" "https://jdbc.postgresql.org/download/postgresql-${POSTGRES_JDBC_VERSION}.jar"
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
+COPY log4j.properties ./conf/log4j.properties
 
 # Voltando para app
 WORKDIR /app
