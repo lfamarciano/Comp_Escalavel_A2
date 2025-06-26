@@ -23,7 +23,6 @@ from config import (
     REDIS_PORT
 )
 
-
 # Configurações da página
 st.set_page_config(
     page_title="Dashboard de E-commerce | Live + Histórico",
@@ -77,7 +76,7 @@ st.markdown("""
 @st.cache_resource
 def get_redis_connection():
     try:
-        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True, ssl=True, ssl_cert_reqs=None)
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         r.ping()
         print(f"Conexão com Redis ({REDIS_HOST}) estabelecida/reutilizada.")
         return r
