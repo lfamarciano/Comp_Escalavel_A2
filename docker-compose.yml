@@ -137,7 +137,6 @@ services:
     command: >
       /opt/spark/bin/spark-submit
       --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
-      --conf "spark.driver.log.level=ERROR"
       --master local[*]
       spark_consumer.py
 
@@ -151,3 +150,42 @@ services:
     depends_on: { redis: { condition: service_healthy } }
     environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
     command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+  historical-load:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    container_name: historical_load
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - ./deltalake:/app/deltalake
+    environment:
+      DELTALAKE_BASE_PATH: /app/deltalake
+    command: >
+      /opt/spark/bin/spark-submit 
+      --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --jars /opt/spark/jars/postgresql-42.7.7.jar
+      --master local[*]
+      historical_pipeline/historical_load.py
+
+  incremental-bronze-worker:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    container_name: incremental_bronze_worker
+    depends_on:
+      postgres: { condition: service_healthy }
+      historical-load: { condition: service_completed_successfully }
+    volumes:
+      - ./deltalake:/app/deltalake
+    environment:
+      DELTALAKE_BASE_PATH: /app/deltalake
+    command: >
+      /opt/spark/bin/spark-submit 
+      --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --jars /opt/spark/jars/postgresql-42.7.7.jar
+      --master local[*]
+      historical_pipeline/incremental_bronze_worker.py
