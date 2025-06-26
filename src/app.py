@@ -11,8 +11,7 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 
 # --- Configurações do Redis ---
-REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
-REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
+from config import REDIS_HOST, REDIS_PORT
 
 # --- Configurações da Página ---
 # Define o título, ícone, layout e estado inicial da barra lateral do aplicativo Streamlit.
