@@ -20,8 +20,9 @@ import uuid
 from publish_to_redis import REDIS_HOST, REDIS_PORT
 
 def write_partition_to_temp_redis_list(partition_iterator, temp_key):
-    r = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True, ssl=True, ssl_cert_reqs=None)
-    json_strings = [json.dumps(row.asDict()) for row in partition_iterator]
+    r = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+    json_strings = [json.dumps(row.asDict(), default=str) for row in partition_iterator]
+    
     if json_strings:
         r.rpush(temp_key, *json_strings)
 
@@ -30,7 +31,7 @@ def write_to_redis_with_foreach_partition(df, metric_name):
         return
     batch_id = str(uuid.uuid4())
     temp_key = f"temp:{metric_name}:{batch_id}"
-    final_key = f"realtime:{metric_name}"
+    final_key = f"{metric_name}"
     
     df.foreachPartition(lambda p: write_partition_to_temp_redis_list(p, temp_key))
 
@@ -42,6 +43,7 @@ def write_to_redis_with_foreach_partition(df, metric_name):
             payload = json_strings_list[0] if is_single_row_metric else f"[{','.join(json_strings_list)}]"
             r.set(final_key, payload)
             print(f"Métrica '{final_key}' atualizada no Redis (método foreachPartition).")
+            print(f"[Redis] Gravados {len(json_strings_list)} registros em '{final_key}'.")
         r.delete(temp_key)
     except Exception as e:
         print(f"ERRO no driver ao processar lote do Redis para '{metric_name}': {e}")

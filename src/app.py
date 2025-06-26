@@ -257,8 +257,8 @@ tab1, tab2, tab3 = st.tabs(["Crescimento de Receita Diário", "Top Produtos por 
 
 with tab1:
     st.subheader("Evolução da Receita Diária por Segmento de Cliente")
-    df_crescimento_data_str = fetch_redis_data(r, "historical:daily_revenue_metrics")
-    df_crescimento_data = json.loads(df_crescimento_data_str)
+    df_crescimento_data = fetch_redis_data(r, "historical:daily_revenue_metrics")
+    # df_crescimento_data = json.loads(df_crescimento_data_str)
     
     if df_crescimento_data:
         df_crescimento = pd.DataFrame(df_crescimento_data)
@@ -282,8 +282,8 @@ with tab1:
 
 with tab2:
     st.subheader("Top 10 Produtos Mais Vendidos por Período")
-    df_top_prod_data_str = fetch_redis_data(r, "historical:top_products_quarterly")
-    df_top_prod_data = json.loads(df_top_prod_data_str)
+    df_top_prod_data = fetch_redis_data(r, "historical:top_products_quarterly")
+    # df_top_prod_data = json.loads(df_top_prod_data_str)
 
     if df_top_prod_data:
         df_top_prod = pd.DataFrame(df_top_prod_data)
@@ -317,38 +317,46 @@ with tab2:
         st.info("Aguardando dados históricos de top produtos...")
 
 with tab3:
-    st.subheader("Taxa de Conversão de Carrinho (Histórico)")
-    # O valor da taxa de conversão é buscado diretamente. 
-    # Se tivéssemos a de abandono, a conversão seria 100 - abandono.
-    taxa_conversao_hist_str = fetch_redis_data(r, "historical:cart_conversion_rate")
-    taxa_conversao_hist = float(taxa_conversao_hist_str)
+    st.subheader("Taxa de Abandono de Carrinho (Histórico Global)")
+    # Corrigindo o nome da chave para buscar o dado correto
+    taxa_abandono_str = r.get("historical:abandoned_cart_rate")  # Usando r.get() direto aqui
 
-    # Garante que temos um valor numérico para exibir
-    if isinstance(taxa_conversao_hist, (int, float)):
-        # Cria o gráfico de medidor (gauge)
-        fig_gauge = go.Figure(go.Indicator(
-            mode = "gauge+number",
-            value = taxa_conversao_hist,
-            title = {'text': "Taxa de Conversão Média (%)"},
-            gauge = {
-                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                'bar': {'color': "#2E8B57"},
-                'bgcolor': "white",
-                'borderwidth': 2,
-                'bordercolor': "gray",
-                'steps': [
-                    {'range': [0, 25], 'color': '#FF7F7F'},
-                    {'range': [25, 50], 'color': '#FFD700'}
-                ],
-                'threshold': {
-                    'line': {'color': "red", 'width': 4},
-                    'thickness': 0.75,
-                    'value': 30  # Exemplo de meta
+    if taxa_abandono_str:
+        try:
+            # O dado no Redis é algo como '{"value":"70.50"}'
+            # Precisamos extrair esse valor
+            # if isinstance(taxa_abandono_str, bytes):
+            #     taxa_abandono_str = taxa_abandono_str.decode("utf-8")
+            dados_abandono = json.loads(taxa_abandono_str)
+            taxa_abandono_hist = float(dados_abandono.get("value", 0))
+
+            # Cria o gráfico de medidor para a TAXA DE ABANDONO
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=taxa_abandono_hist,
+                title={'text': "Taxa de Abandono Média (%)"},
+                gauge={
+                    'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                    'bar': {'color': "#2E8B57"},
+                    'bgcolor': "white",
+                    'borderwidth': 2,
+                    'bordercolor': "gray",
+                    'steps': [
+                        {'range': [0, 25], 'color': '#FF7F7F'},
+                        {'range': [25, 50], 'color': '#FFD700'}
+                    ],
+                    'threshold': {
+                        'line': {'color': "red", 'width': 4},
+                        'thickness': 0.75,
+                        'value': 30  # Exemplo de meta
+                    }
                 }
-            }
-        ))
-        fig_gauge.update_layout(font = {'color': "darkblue", 'family': "Arial"})
-        st.plotly_chart(fig_gauge, use_container_width=True)
+            ))
+            # fig_gauge.update_layout(font = {'color': "darkblue", 'family': "Arial"})
+            st.plotly_chart(fig_gauge, use_container_width=True)
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            st.error(f"Erro ao processar a taxa de abandono: {e}")
+            st.info(f"Dado recebido do Redis: {taxa_abandono_str}")
     else:
         st.info("Aguardando dados históricos da taxa de conversão...")
 
