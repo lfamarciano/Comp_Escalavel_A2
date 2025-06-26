@@ -21,6 +21,12 @@ services:
     networks:
       - app-net
     environment: { ZOOKEEPER_CLIENT_PORT: 2181 }
+    healthcheck:
+      test: echo "imok"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 
   kafka:
@@ -29,7 +35,8 @@ services:
     networks:
       - app-net
     ports: ["9092:9092"]
-    depends_on: [zookeeper]
+    depends_on: 
+      zookeeper: {condition: service_healthy}
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
@@ -45,6 +52,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 40s
 
   postgres:
     image: postgres:14-alpine
@@ -77,6 +85,7 @@ services:
     build:
       context: .
       target: app-python
+    container_name: db_init
     networks: [app-net]
     depends_on: { postgres: { condition: service_healthy } }
     environment: { DB_HOST: postgres }
@@ -86,8 +95,9 @@ services:
   persist-sim-consumer:
     build:
       context: .
-      target: app-spark
+      target: app-python
     networks: [app-net]
+    container_name: persist_sim_consumer
     depends_on:
       kafka: { condition: service_healthy }
       db-init: { condition: service_completed_successfully }
@@ -95,18 +105,14 @@ services:
     environment:
       DB_HOST: postgres
       KAFKA_HOST: kafka:9092
-    command: >
-      /opt/spark/bin/spark-submit
-      --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
-      --conf "spark.driver.log.level=WARN"
-      --master local[*]
-      persist_sim_consumer.py
+    command: ["python", "-u", "persist_sim_consumer.py"]
   
   producer:
     build:
       context: .
       target: app-python
     networks: [app-net]
+    container_name: producer
     depends_on:
       kafka: { condition: service_healthy }
       db-init: { condition: service_completed_successfully }
@@ -122,6 +128,7 @@ services:
       context: .
       target: app-spark
     networks: [app-net]
+    container_name: spark_consumer
     depends_on:
       kafka: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -131,7 +138,6 @@ services:
     command: >
       /opt/spark/bin/spark-submit
       --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
-      --conf "spark.driver.log.level=WARN"
       --master local[*]
       spark_consumer.py
 
@@ -139,8 +145,74 @@ services:
     build:
       context: .
       target: app-python
+    container_name: dashboard
     networks: [app-net]
     ports: ["8501:8501"]
     depends_on: { redis: { condition: service_healthy } }
-    environment: { REDIS_HOST: redis, POSTGRES_USER: postgres, POSTGRES_PASSWORD: 123, POSTGRES_DB: ecommerce_db }
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: ecommerce_db
     command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+  historical-load:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    container_name: historical_load
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - ./deltalake:/app/deltalake
+    environment:
+      DELTALAKE_BASE_PATH: /app/deltalake
+    command: >
+      /opt/spark/bin/spark-submit 
+      --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --jars /opt/spark/jars/postgresql-42.7.7.jar
+      --master local[*]
+      historical_pipeline/historical_load.py
+
+  incremental-bronze-worker:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    container_name: incremental_bronze_worker
+    depends_on:
+      postgres: { condition: service_healthy }
+      historical-load: { condition: service_completed_successfully }
+    volumes:
+      - ./deltalake:/app/deltalake
+    environment:
+      DELTALAKE_BASE_PATH: /app/deltalake
+    command: >
+      /opt/spark/bin/spark-submit 
+      --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --jars /opt/spark/jars/postgresql-42.7.7.jar
+      --master local[*]
+      historical_pipeline/incremental_bronze_worker.py
+
+  historical-streaming:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    container_name: historical_streaming
+    depends_on:
+      incremental-bronze-worker: { condition: service_started }
+      redis: { condition: service_healthy }
+    volumes:
+      - ./deltalake:/app/deltalake
+    environment:
+      DELTALAKE_BASE_PATH: /app/deltalake
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: >
+      /opt/spark/bin/spark-submit 
+      --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --master local[*]
+      historical_pipeline/streaming_hist_metrics.py

@@ -39,6 +39,7 @@ def metrics_pipeline():
     output_path = gold_base_path / metric_name
     print(f"\nSalvando resultado final DeltaLake (camada Ouro): {output_path}")
     write_to_delta(crescimento_receita_df, str(output_path))
+    # PUblicando no Redis
     redis_key_name = f"historical:{metric_name}"
     print(f"Publicando resultado final no Redis na chave: {redis_key_name}")
     publish_dataframe_to_redis(crescimento_receita_df, redis_key_name)
@@ -54,6 +55,7 @@ def metrics_pipeline():
     output_path = gold_base_path / metric_name
     print(f"\nSalvando resultado final DeltaLake (camada Ouro): {output_path}")
     write_to_delta(produtos_mais_vendidos_df, str(output_path))
+    # PUblicando no Redis
     redis_key_name = f"historical:{metric_name}"
     print(f"Publicando resultado final no Redis na chave: {redis_key_name}")
     publish_dataframe_to_redis(produtos_mais_vendidos_df, redis_key_name)
@@ -65,6 +67,7 @@ def metrics_pipeline():
     taxa_abandono = abandoned_cart_rate(transacoes_df, eventos_web_df)
     print("\nResultado - Taxa de Abandono de Carrinho:")
     print(f"A taxa de abandono de carrinho é: {taxa_abandono}")
+    # PUblicando no Redis
     redis_key_name = f"historical:{metric_name}"
     print(f"Publicando resultado final no Redis na chave: {redis_key_name}")
     publish_metric_to_redis(taxa_abandono, redis_key_name)

@@ -9,7 +9,7 @@ root_dir = Path(__file__).resolve().parent.parent
 # print(f"db_dir: {db_dir}, {db_dir.exists()}")
 # sys.path.append(str(db_dir))
 sys.path.append(str(root_dir))
-from db.db_config import DB_CONFIG, DB_NAME
+from config import DB_CONFIG, DB_NAME
 
 # Lendo dados das tabelas
 def read_from_postgres_with_partition(spark: SparkSession, jdbc_url: str, db_properties: dict, table_name: str, partition_column: str, num_partitions: int) -> DataFrame:

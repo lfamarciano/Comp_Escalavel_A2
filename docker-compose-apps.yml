@@ -1,0 +1,53 @@
+# docker-compose.yml
+# Define e orquestra toda a pilha de serviços com um único ficheiro.
+# > docker-compose up --build --scale producer=2
+
+version: '3.8'
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+
+services:
+  # --- SERVIÇOS DA APLICAÇÃO ---
+  db-init:
+    build:
+      context: .
+      target: app-python
+    container_name: db_init
+    networks: [app-net]
+    environment:
+      PIPELINE_ENV: ${PIPELINE_ENV}
+    command: >
+      sh -c "python db/create_db.py && python db/carga_inicial.py"
+
+  producer:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    container_name: producer
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+    environment:
+      PIPELINE_ENV: ${PIPELINE_ENV}
+      NUM_WORKERS: 4
+    command: ["python", "producer.py"]
+    restart: on-failure
+
+  persist-sim-consumer:
+    build:
+      context: .
+      target: app-python
+    networks: [app-net]
+    container_name: persist_sim_consumer
+    depends_on:
+      db-init: { condition: service_completed_successfully }
+      producer: { condition: service_started }
+    environment:
+      PIPELINE_ENV: ${PIPELINE_ENV}
+    command: ["python", "-u", "persist_sim_consumer.py"]
