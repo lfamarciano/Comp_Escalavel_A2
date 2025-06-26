@@ -13,11 +13,14 @@ import signal
 
 # Supondo que db_config.py exista em um diretório 'db'
 # Adicionando configurações
-import sys
-from pathlib import Path
+
 import threading
 
 import os
+
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 
 
 from config import POSTGRES_PASSWORD, POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT, JDBC_DRIVER_PATH

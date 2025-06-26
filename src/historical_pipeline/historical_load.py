@@ -4,6 +4,9 @@ from pyspark.sql import SparkSession
 
 from dotenv import load_dotenv
 load_dotenv()
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 
 from config import POSTGRES_PASSWORD, POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT
 # POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "123")

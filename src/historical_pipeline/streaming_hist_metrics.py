@@ -17,6 +17,7 @@ from pathlib import Path
 import json
 import uuid
 
+
 from publish_to_redis import REDIS_HOST, REDIS_PORT
 
 def write_partition_to_temp_redis_list(partition_iterator, temp_key):

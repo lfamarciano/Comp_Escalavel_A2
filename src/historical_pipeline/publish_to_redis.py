@@ -6,6 +6,9 @@ from typing import Any
 import os
 from dotenv import load_dotenv
 load_dotenv()
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 
 try:
     from config import REDIS_HOST, REDIS_PORT
