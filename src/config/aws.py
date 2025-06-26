@@ -5,7 +5,7 @@ KAFKA_HOST = os.environ.get('KAFKA_HOST', '10.0.155.193:9092')
 TRANSACTIONS_TOPIC = 'transacoes_vendas'
 WEB_EVENTS_TOPIC = 'eventos_web'
 
-REDIS_HOST = os.environ.get('REDIS_HOST', '107.21.68.103')
+REDIS_HOST = os.environ.get('REDIS_HOST', '34.228.158.122')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 
 DB_HOST = os.environ.get('DB_HOST', 'postgres-identifier.chvwsyfmunoi.us-east-1.rds.amazonaws.com')
