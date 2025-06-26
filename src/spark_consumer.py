@@ -9,13 +9,17 @@ from pyspark.sql.functions import from_json, col, sum as _sum, count, approx_cou
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
 
 # Configurações
-try:
-    from config.local import KAFKA_HOST, REDIS_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
-except ImportError:
-    KAFKA_HOST = os.environ.get('KAFKA_HOST', 'kafka:9092')
-    REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
-    TRANSACTIONS_TOPIC = os.environ.get('TRANSACTIONS_TOPIC', 'transacoes_vendas')
-    WEB_EVENTS_TOPIC = os.environ.get('WEB_EVENTS_TOPIC', 'eventos_web')
+# try:
+#     from config.local import KAFKA_HOST, REDIS_HOST, TRANSACTIONS_TOPIC, WEB_EVENTS_TOPIC
+# except ImportError:
+#     KAFKA_HOST = os.environ.get('KAFKA_HOST', 'kafka:9092')
+#     REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
+#     TRANSACTIONS_TOPIC = os.environ.get('TRANSACTIONS_TOPIC', 'transacoes_vendas')
+#     WEB_EVENTS_TOPIC = os.environ.get('WEB_EVENTS_TOPIC', 'eventos_web')
+REDIS_HOST = '54.235.3.149'
+KAFKA_HOST = '3.90.34.101:9092'
+TRANSACTIONS_TOPIC = 'transacoes_vendas'
+WEB_EVENTS_TOPIC = 'eventos_web'
 
 # --- 1. Configuração da Sessão Spark ---
 spark = (

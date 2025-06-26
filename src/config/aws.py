@@ -1,7 +1,7 @@
 # Arquivo para definir os endereços para os serviços na AWS.
 import os
 
-KAFKA_HOST = os.environ.get('KAFKA_HOST', '10.0.155.193:9092')
+KAFKA_HOST = os.environ.get('KAFKA_HOST', '3.90.34.101:9092')
 TRANSACTIONS_TOPIC = 'transacoes_vendas'
 WEB_EVENTS_TOPIC = 'eventos_web'
 
