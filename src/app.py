@@ -183,11 +183,11 @@ if not r:
 st.markdown("## Métricas em Tempo Real")
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.markdown(f'<div class="metric-card"><div class="metric-title">💰 Receita Total</div><div class="metric-value">R$ {current_kpis["receita"]:,.2f}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card"><div class="metric-title">💰 Receita Total</div><div class="metric-value">R$ {current_kpis.get("receita", 0):,.2f}</div></div>', unsafe_allow_html=True)
 with col2:
-    st.markdown(f'<div class="metric-card"><div class="metric-title">📦 Pedidos Totais</div><div class="metric-value">{current_kpis["pedidos"]:,}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card"><div class="metric-title">📦 Pedidos Totais</div><div class="metric-value">{current_kpis.get("pedidos", 0):,}</div></div>', unsafe_allow_html=True)
 with col3:
-    st.markdown(f'<div class="metric-card"><div class="metric-title">🏷️ Ticket Médio</div><div class="metric-value">R$ {current_kpis["ticket_medio"]:,.2f}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card"><div class="metric-title">🏷️ Ticket Médio</div><div class="metric-value">R$ {current_kpis.get("ticket_medio", 0):,.2f}</div></div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -257,22 +257,19 @@ tab1, tab2, tab3 = st.tabs(["Crescimento de Receita Diário", "Top Produtos por 
 with tab1:
     st.subheader("Evolução da Receita Diária por Segmento de Cliente")
     df_crescimento_data = fetch_redis_data(r, "historical:daily_revenue_metrics")
-    # df_crescimento_data = json.loads(df_crescimento_data_str)
     
     if df_crescimento_data:
         df_crescimento = pd.DataFrame(df_crescimento_data)
-        # Converte a coluna de data para o formato datetime, essencial para gráficos de séries temporais
         df_crescimento['data'] = pd.to_datetime(df_crescimento['data'])
         df_crescimento = df_crescimento.sort_values('data')
 
-        # Cria o gráfico de linhas com Plotly Express
         fig_line = px.line(df_crescimento,
                            x='data',
                            y='receita_total_diaria',
-                           color='segmento_cliente', # Cria uma linha para cada segmento
+                           color='segmento_cliente',
                            title="Receita Diária por Segmento de Cliente",
                            labels={'data': 'Data', 'receita_total_diaria': 'Receita Total (R$)', 'segmento_cliente': 'Segmento'},
-                           markers=True) # Adiciona marcadores para cada ponto de dado
+                           markers=True)
         
         fig_line.update_layout(legend_title_text='Segmento')
         st.plotly_chart(fig_line, use_container_width=True)
@@ -282,12 +279,10 @@ with tab1:
 with tab2:
     st.subheader("Top 10 Produtos Mais Vendidos por Período")
     df_top_prod_data = fetch_redis_data(r, "historical:top_products_quarterly")
-    # df_top_prod_data = json.loads(df_top_prod_data_str)
 
     if df_top_prod_data:
         df_top_prod = pd.DataFrame(df_top_prod_data)
         
-        # Cria filtros para ano e trimestre
         col_filter1, col_filter2 = st.columns(2)
         anos = sorted(df_top_prod['ano'].unique())
         ano_selecionado = col_filter1.selectbox("Selecione o Ano", options=anos, index=len(anos)-1)
@@ -295,10 +290,8 @@ with tab2:
         trimestres = sorted(df_top_prod[df_top_prod['ano'] == ano_selecionado]['trimestre'].unique())
         trimestre_selecionado = col_filter2.selectbox("Selecione o Trimestre", options=trimestres, index=len(trimestres)-1)
 
-        # Filtra o DataFrame com base na seleção do usuário
         df_filtrado = df_top_prod[(df_top_prod['ano'] == ano_selecionado) & (df_top_prod['trimestre'] == trimestre_selecionado)]
 
-        # Cria o gráfico de barras horizontais
         fig_bar_prod = px.bar(df_filtrado,
                               x='unidades_vendidas',
                               y='nome_produto',
@@ -308,7 +301,7 @@ with tab2:
                               text='unidades_vendidas',
                               template='plotly_white')
         
-        fig_bar_prod.update_layout(yaxis={'categoryorder':'total ascending'}) # Ordena do menor para o maior
+        fig_bar_prod.update_layout(yaxis={'categoryorder':'total ascending'})
         fig_bar_prod.update_traces(textposition='outside', marker_color='#2E8B57')
         st.plotly_chart(fig_bar_prod, use_container_width=True)
 
@@ -317,45 +310,46 @@ with tab2:
 
 with tab3:
     st.subheader("Taxa de Abandono de Carrinho (Histórico Global)")
-    # Corrigindo o nome da chave para buscar o dado correto
-    taxa_abandono_str = r.get("historical:abandoned_cart_rate")  # Usando r.get() direto aqui
+    taxa_abandono_hist = 0.0  # Inicializa com um valor padrão
+    dados_abandono_raw = fetch_redis_data(r, "historical:abandoned_cart_rate")
 
-    if taxa_abandono_str:
-        try:
-            # O dado no Redis é algo como '{"value":"70.50"}'
-            # Precisamos extrair esse valor
-            # if isinstance(taxa_abandono_str, bytes):
-            #     taxa_abandono_str = taxa_abandono_str.decode("utf-8")
-            dados_abandono = json.loads(taxa_abandono_str)
-            taxa_abandono_hist = float(dados_abandono.get("value", 0))
+    if dados_abandono_raw:
+        # Verifica se o dado é uma lista e não está vazia
+        if isinstance(dados_abandono_raw, list) and dados_abandono_raw:
+            # Pega o primeiro dicionário da lista
+            dados_abandono_dict = dados_abandono_raw[0]
+            # Extrai o valor do dicionário
+            taxa_abandono_str = dados_abandono_dict.get("value")
+            if taxa_abandono_str is not None:
+                taxa_abandono_hist = float(taxa_abandono_str)
+        # Verifica se o dado já é um dicionário
+        elif isinstance(dados_abandono_raw, dict):
+             # Extrai o valor do dicionário
+            taxa_abandono_str = dados_abandono_raw.get("value")
+            if taxa_abandono_str is not None:
+                taxa_abandono_hist = float(taxa_abandono_str)
 
-            # Cria o gráfico de medidor para a TAXA DE ABANDONO
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=taxa_abandono_hist,
-                title={'text': "Taxa de Abandono Média (%)"},
-                gauge={
-                    'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                    'bar': {'color': "#2E8B57"},
-                    'bgcolor': "white",
-                    'borderwidth': 2,
-                    'bordercolor': "gray",
-                    'steps': [
-                        {'range': [0, 25], 'color': '#FF7F7F'},
-                        {'range': [25, 50], 'color': '#FFD700'}
-                    ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 30  # Exemplo de meta
-                    }
-                }
-            ))
-            # fig_gauge.update_layout(font = {'color': "darkblue", 'family': "Arial"})
-            st.plotly_chart(fig_gauge, use_container_width=True)
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            st.error(f"Erro ao processar a taxa de abandono: {e}")
-            st.info(f"Dado recebido do Redis: {taxa_abandono_str}")
-    else:
-        st.info("Aguardando dados históricos da taxa de conversão...")
-
+    # Cria o gráfico de medidor para a TAXA DE ABANDONO
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=taxa_abandono_hist,
+        title={'text': "Taxa de Abandono Média (%)"},
+        gauge={
+            'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+            'bar': {'color': "#2E8B57"},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0, 50], 'color': '#90ee90'}, # Verde para baixo
+                {'range': [50, 75], 'color': '#ffd700'}, # Amarelo para médio
+                {'range': [75, 100], 'color': '#ff7f7f'}, # Vermelho para alto
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': 80  # Exemplo de meta
+            }
+        }
+    ))
+    st.plotly_chart(fig_gauge, use_container_width=True)
