@@ -189,3 +189,24 @@ services:
       --jars /opt/spark/jars/postgresql-42.7.7.jar
       --master local[*]
       historical_pipeline/incremental_bronze_worker.py
+
+  historical-streaming:
+    build:
+      context: .
+      target: app-spark
+    networks: [app-net]
+    container_name: historical_streaming
+    depends_on:
+      incremental-bronze-worker: { condition: service_started }
+      redis: { condition: service_healthy }
+    volumes:
+      - ./deltalake:/app/deltalake
+    environment:
+      DELTALAKE_BASE_PATH: /app/deltalake
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: >
+      /opt/spark/bin/spark-submit 
+      --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+      --master local[*]
+      historical_pipeline/streaming_hist_metrics.py
