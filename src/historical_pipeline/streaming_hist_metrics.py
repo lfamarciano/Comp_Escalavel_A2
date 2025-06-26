@@ -11,10 +11,40 @@ from pyspark.sql.types import (
     IntegerType
 )
 from delta.tables import DeltaTable
-from pathlib import Path
 import redis
 
-from publish_to_redis import publish_dataframe_to_redis, publish_metric_to_redis
+from pathlib import Path
+import json
+import uuid
+
+from publish_to_redis import REDIS_HOST, REDIS_PORT
+
+def write_partition_to_temp_redis_list(partition_iterator, temp_key):
+    r = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True, ssl=True, ssl_cert_reqs=None)
+    json_strings = [json.dumps(row.asDict()) for row in partition_iterator]
+    if json_strings:
+        r.rpush(temp_key, *json_strings)
+
+def write_to_redis_with_foreach_partition(df, metric_name):
+    if df.isEmpty():
+        return
+    batch_id = str(uuid.uuid4())
+    temp_key = f"temp:{metric_name}:{batch_id}"
+    final_key = f"realtime:{metric_name}"
+    
+    df.foreachPartition(lambda p: write_partition_to_temp_redis_list(p, temp_key))
+
+    try:
+        r = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+        json_strings_list = r.lrange(temp_key, 0, -1)
+        if json_strings_list:
+            is_single_row_metric = "global" in metric_name or "total" in metric_name
+            payload = json_strings_list[0] if is_single_row_metric else f"[{','.join(json_strings_list)}]"
+            r.set(final_key, payload)
+            print(f"Métrica '{final_key}' atualizada no Redis (método foreachPartition).")
+        r.delete(temp_key)
+    except Exception as e:
+        print(f"ERRO no driver ao processar lote do Redis para '{metric_name}': {e}")
 
 import os
 from dotenv import load_dotenv
@@ -155,7 +185,8 @@ def upsert_daily_revenue(micro_batch_df: DataFrame, epoch_id: int):
         .orderBy(F.col("data").desc(), "segmento_cliente")
     
     # Publicando o dataframe inteiro como um JSON no Redis
-    publish_dataframe_to_redis(latest_metrics_df, "historical:daily_revenue_metrics")
+    # publish_dataframe_to_redis(latest_metrics_df, "historical:daily_revenue_metrics")
+    write_to_redis_with_foreach_partition(latest_metrics_df, "historical:daily_revenue_metrics")
     print("[Redis] Métricas diárias publicadas no Redis.")
 
     micro_batch_df.unpersist()
@@ -230,7 +261,8 @@ def upsert_most_sold_products(micro_batch_df: DataFrame, epoch_id: int):
 
     # Publicando no Redis
     latest_top10_df = spark.read.format("delta").load(gold_top10_path).orderBy(F.desc("ano"), F.desc("trimestre"), "rank")
-    publish_dataframe_to_redis(latest_top10_df, "historical:top10_products_quarterly")
+    # publish_dataframe_to_redis(latest_top10_df, "historical:top10_products_quarterly")
+    write_to_redis_with_foreach_partition(latest_top10_df, "historical:top10_products_quarterly")
     print("[Produtos] Ranking TOP 10 publicado no Redis.")
     
     updates_df.unpersist()
@@ -296,7 +328,14 @@ def update_finished_carts_and_calc_rate(micro_batch_df: DataFrame, epoch_id: int
     
     # Publicando a métrica no Redis
     print(f"[Taxa Abandono] Taxa de Abandono de Carrinho Atual: {taxa_abandono:.2f}%")
-    publish_metric_to_redis(f"{taxa_abandono:.2f}", "historical:abandoned_cart_rate")
+    # Criando dataframe para utilziar foreachPartition
+    rate_df = spark.createDataFrame(
+        [{"value": f"{taxa_abandono:.2f}"}],
+        StructType([StructField("value", StringType(), True)])
+    )
+    
+    # publish_metric_to_redis(f"{taxa_abandono:.2f}", "historical:abandoned_cart_rate")
+    write_to_redis_with_foreach_partition(rate_df, "historical:abandoned_cart_rate")
     print("[Taxa Abandono] Métrica publicada no Redis.")
 
 def boostrap_gold_layer(spark: SparkSession, gold_path: str, schemas_config: dict):
