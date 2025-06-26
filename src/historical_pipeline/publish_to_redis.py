@@ -3,10 +3,17 @@ import redis
 
 from typing import Any
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
+REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
+
 def connect_to_redis_and_publish(redis_key: str, data: Any):
     try:
         # Conectando ao redis
-        r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         # Verificando conexão ativa
         r.ping()
         print("Conectado ao Redis com sucesso!")
