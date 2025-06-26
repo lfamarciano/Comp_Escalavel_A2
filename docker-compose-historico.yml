@@ -20,8 +20,6 @@ services:
       target: app-spark
     networks: [app-net]
     container_name: historical_load
-    depends_on:
-      postgres: { condition: service_healthy }
     volumes:
       - ./deltalake:/app/deltalake
     environment:
@@ -41,7 +39,6 @@ services:
     networks: [app-net]
     container_name: incremental_bronze_worker
     depends_on:
-      postgres: { condition: service_healthy }
       historical-load: { condition: service_completed_successfully }
     volumes:
       - ./deltalake:/app/deltalake
@@ -63,7 +60,6 @@ services:
     container_name: historical_streaming
     depends_on:
       incremental-bronze-worker: { condition: service_started }
-      redis: { condition: service_healthy }
     volumes:
       - ./deltalake:/app/deltalake
     environment:
