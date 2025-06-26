@@ -14,7 +14,6 @@ volumes:
 
 services:
   # --- SERVIÇOS DA APLICAÇÃO ---
-
   db-init:
     build:
       context: .
@@ -51,17 +50,4 @@ services:
       producer: { condition: service_started }
     environment:
       PIPELINE_ENV: ${PIPELINE_ENV}
-      DB_HOST: postgres
-      KAFKA_HOST: kafka:9092
     command: ["python", "persist_sim_consumer.py"]
-
-  dashboard:
-    build:
-      context: .
-      target: app-python
-    container_name: dashboard
-    networks: [app-net]
-    ports: ["8501:8501"]
-    environment:
-      PIPELINE_ENV: ${PIPELINE_ENV}
-    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

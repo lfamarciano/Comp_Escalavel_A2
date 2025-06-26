@@ -11,9 +11,6 @@ volumes:
 services:
   # --- SERVIÇOS DE INFRAESTRUTURA ---
 
-services:
-  # --- SERVIÇOS DE INFRAESTRUTURA ---
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.2
     container_name: zookeeper
