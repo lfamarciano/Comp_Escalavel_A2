@@ -20,12 +20,11 @@ services:
       target: app-spark
     networks: [app-net]
     container_name: historical_load
-    depends_on:
-      postgres: { condition: service_healthy }
     volumes:
       - ./deltalake:/app/deltalake
     environment:
       DELTALAKE_BASE_PATH: /app/deltalake
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       /opt/spark/bin/spark-submit 
       --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
@@ -40,12 +39,12 @@ services:
     networks: [app-net]
     container_name: incremental_bronze_worker
     depends_on:
-      postgres: { condition: service_healthy }
       historical-load: { condition: service_completed_successfully }
     volumes:
       - ./deltalake:/app/deltalake
     environment:
       DELTALAKE_BASE_PATH: /app/deltalake
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       /opt/spark/bin/spark-submit 
       --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
@@ -61,13 +60,11 @@ services:
     container_name: historical_streaming
     depends_on:
       incremental-bronze-worker: { condition: service_started }
-      redis: { condition: service_healthy }
     volumes:
       - ./deltalake:/app/deltalake
     environment:
       DELTALAKE_BASE_PATH: /app/deltalake
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      PIPELINE_ENV: ${PIPELINE_ENV}
     command: >
       /opt/spark/bin/spark-submit 
       --packages io.delta:delta-spark_2.13:4.0.0,org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0

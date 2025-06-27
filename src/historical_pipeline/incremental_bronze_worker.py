@@ -13,19 +13,19 @@ import signal
 
 # Supondo que db_config.py exista em um diretório 'db'
 # Adicionando configurações
-import sys
-from pathlib import Path
+
 import threading
 
 import os
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+
+from config import POSTGRES_PASSWORD, POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT, JDBC_DRIVER_PATH
+
 DELTALAKE_BASE_PATH = os.environ.get("DELTALAKE_BASE_PATH", "app/deltalake")
-JDBC_DRIVER_PATH = os.environ.get("JDBC_DRIVER_PATH", "/opt/spark/jars/postgresql-42.7.7.jar")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "123")
-POSTGRES_DATABASE = os.environ.get("POSTGRES_DATABASE", "ecommerce_db")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
 
 def get_max_id_from_delta(spark: SparkSession, delta_path: str, id_column: str) -> int:
     """Busca o ID máximo de uma tabela Delta. Retorna 0 se a tabela não existir ou estiver vazia."""

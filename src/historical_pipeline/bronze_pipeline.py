@@ -10,11 +10,9 @@ from bronze_read_data import read_from_postgres_with_partition
 from bronze_clean_data import clean_clients_data, clean_transactions_data, clean_products_data, clean_web_events_data
 from bronze_write_data import write_to_delta, deltalake_bronze_path
 
-# Impotando db_config com as configurações do db de db_import
-root_dir = Path(__file__).resolve().parent.parent
-# print(f"db_dir: {db_dir}, {db_dir.exists()}")
-# sys.path.append(str(db_dir))
-sys.path.append(str(root_dir))
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 from config import DB_CONFIG, DB_NAME
 
 # TODO: Adjust number of partitions dinamically

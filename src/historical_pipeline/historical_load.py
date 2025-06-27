@@ -4,12 +4,16 @@ from pyspark.sql import SparkSession
 
 from dotenv import load_dotenv
 load_dotenv()
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "123")
-POSTGRES_DATABASE = os.environ.get("POSTGRES_DATABASE", "ecommerce_db")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
+from config import POSTGRES_PASSWORD, POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_HOST, POSTGRES_PORT
+# POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "123")
+# POSTGRES_DATABASE = os.environ.get("POSTGRES_DATABASE", "ecommerce_db")
+# POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+# POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
+# POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
 
 def main():
     spark = SparkSession.builder.appName("HistoricalLoad") \
@@ -36,13 +40,21 @@ def main():
     for table in tables:
         print(f"Processing table: {table}...")
         
-        # 1. Read the ENTIRE table from PostgreSQL
+        # 1. Lê os dados do PostgreSQL
         df = spark.read.jdbc(url=jdbc_url, table=table, properties=db_properties)
         
-        # 2. OVERWRITE the Delta table with the full dataset
+        # --- OTIMIZAÇÃO AQUI ---
+        # 2. Guarda o DataFrame em memória para evitar releituras.
+        df.cache()
+
         delta_path = f"{base_path}/bronze/{table}"
+        
+        # 3. Agora o .count() e o .write() usarão os dados em memória, que é muito mais rápido.
         print(f"Writing {df.count()} rows to {delta_path} in overwrite mode.")
         df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(delta_path)
+        
+        # 4. Libera o DataFrame da memória para a próxima iteração do loop.
+        df.unpersist()
         
         print(f"Table {table} loaded successfully.")
 

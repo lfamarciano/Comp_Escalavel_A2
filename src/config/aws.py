@@ -5,7 +5,7 @@ KAFKA_HOST = os.environ.get('KAFKA_HOST', '10.0.155.193:9092')
 TRANSACTIONS_TOPIC = 'transacoes_vendas'
 WEB_EVENTS_TOPIC = 'eventos_web'
 
-REDIS_HOST = os.environ.get('REDIS_HOST', 'redis-wcceek.serverless.use1.cache.amazonaws.com')
+REDIS_HOST = os.environ.get('REDIS_HOST', '34.228.158.122')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 
 DB_HOST = os.environ.get('DB_HOST', 'postgres-identifier.chvwsyfmunoi.us-east-1.rds.amazonaws.com')
@@ -29,4 +29,6 @@ POSTGRES_DATABASE = DB_NAME
 
 OUT_URL = DB_HOST
 
+JDBC_DRIVER_PATH = "/opt/spark/jars/postgresql-42.7.7.jar"
+DELTALAKE_BRONZE_PATH = "/app/deltalake/bronze"
 # ... etc.
