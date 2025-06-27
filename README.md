@@ -1,147 +1,32 @@
-# Configuração do ambiente de desenvolvimento
-
-## Arquivo `.env`
-
-Crie um arquivo `.env` na raíz do projeto com o seguinte conteúdo:
-
-```config
-DB_CONFIG={"host": "localhost", "user": "postgres", "password": {senha do seu psql}, "port": {porta do seu psql}(a padrao é 5432), "database": "ecommerce_db"}
-```
-
-Isso vai garantir que você não precise alterar para suas configurações do PostgreSQL (e outras ferramentas) em cada script que forem necessárias.
-
-## PostgreSQL
-
-Baixe e execute o instalador de Windows para a versão mais recente do PostgreSQL (17.5) no site [Enterprise DB](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)
+# Guia de execução
 
 ## Docker Desktop
 
 Baixe e execute o instalador de Windows para a versão mais recente do Docker Desktop na [página oficial do Docer](https://www.docker.com/products/docker-desktop/)
 
-## Baixando dependências python
-Nesse projeto estamos utilizando `uv` como gerenciador de dependências. O `uv` é um gerenciador de dependências altamente eficiente do python que resolve quaisquer problemas de dependência automaticamente enquanto garante uma instalação muito mais rápida do que simplesmente utilizando o `pip`
+## Para rodar localmente
 
-1. Garanta que o pacote `uv` está instalado no seu python
-   - Rode `pip install uv`
-2. A partir daqui, o `uv` irá gerenciar nossas dependências
-3. Crie um *ambiente virtual* com `uv venv`
-4. Ative o ambiente com `.\.venv\Scripts\activate.bat` (ou activate.ps1 no PowerShell)
-5. Instale as dependências no ambiente com `uv sync`
-6. Sempre que for adicionar uma dependência, use `uv add {pacote_python}`, no lugar de `pip install {pacote_python}` 
-   - Exemplo: `uv add pandas` ao invés de `pip install pandas`
+Tendo o docker e docker-compose baixados, basta executar o seguinte comando para rodar tudo localmente.
 
+`docker-compose up`
 
-## GUIA PRA CONFIGURAR O SPARK NO WINDOWS
-### Passo 1: Instalar o Java Development Kit (JDK) correto
-O Spark é uma aplicação Java e precisa do JDK para rodar. A versão do Spark que estamos usando (4.0.0) exige o Java 17.
+## Para rodar na nuvem
 
-1. Baixe o JDK 17: 
-   - Recomendamos o OpenJDK da Adoptium, que é gratuito e confiável
-   - Link de Download: (Adoptium OpenJDK 17 LTS)[https://adoptium.net/temurin/releases/?version=17]
-2. Selecione Windows e x64, e baixe o instalador `.msi`.
-3. Instale o Java: Execute o arquivo `.msi`.
-   - PONTO CRÍTICO: Durante a instalação, em "Custom Setup", certifique-se de que a opção "Set JAVA_HOME variable" esteja marcada para ser instalada. Isso configura a variável de ambiente `JAVA_HOME` automaticamente.
+A nossa estrutura de arquivos e do repositório permite tanto rodar localmente quanto na nuvem. Para rodar na núvem é utilizada a variável de ambiente chave `PIPELINE_ENV='aws`. Deve-se anotar todos os endereços dos serviços utilizados (intancias EC2, RDS) seguir e montar um arquivo .env com o seguinte formato:
 
-### Passo 2: Baixar e Descompactar o Spark
-Agora, vamos baixar o "motor" do Spark.
-
-1. Acesse a página de downloads do Spark: (Apache Spark Downloads) [https://spark.apache.org/downloads.html]
-
-2. Selecione as versões corretas:
-   - `Choose a Spark release`: 4.0.0
-   - `Choose a package type`: Pre-built for Apache Hadoop 3.4 and later
-3. Baixe o arquivo `.tgz` clicando no primeiro link de download.
-4. Crie e Descompacte:
-- Crie uma pasta simples na raiz do seu disco, por exemplo: `C:\spark`.
-- Use o 7-Zip para descompactar o arquivo .tgz que você baixou. Você precisará fazer isso em duas etapas:
-- Extraia o arquivo `spark-4.0.0-bin-hadoop3.tgz` para obter um arquivo `spark-4.0.0-bin-hadoop3.tar`.
-- Extraia o arquivo .tar para dentro da pasta `C:\spark`.
-- Ao final, a estrutura de pastas deve ser: `C:\spark\spark-4.0.0-bin-hadoop3`.
-
-### Passo 3: Configurar a Camada de Compatibilidade do Hadoop
-Esta é a etapa mais importante para evitar o erro UnsatisfiedLinkError. Precisamos de dois arquivos do Hadoop.
-
-1. Crie a Estrutura de Pastas:
-   - Crie uma pasta hadoop na raiz do seu disco: `C:\hadoop`.
-   - Dentro dela, crie uma pasta bin: `C:\hadoop\bin`.
-2. Baixe os Arquivos Necessários:
-   - O Spark 4.0 foi compilado com o Hadoop 3.4, mas usaremos os utilitários da versão 3.3.6, que são compatíveis.
-   - Baixe o `winutils.exe` e o `hadoop.dll` do seguinte link:
-   - https://github.com/cdarlint/winutils/blob/master/hadoop-3.3.6/bin/winutils.exe
-   - Baixe a pasta referente a versão correta
-3. Coloque os arquivos na pasta bin:
-   - Certifique-se de que ambos os arquivos, `winutils.exe` e `hadoop.dll`, estejam dentro de `C:\hadoop\bin`.
-4. Crie um diretório `C:/tmp/spark_checkpoints`.
-
-### Passo 4: Configurar as Variáveis de Ambiente
-Aqui, vamos dizer ao Windows onde encontrar o Java, o Spark e o Hadoop.
-
-1. Abra as Variáveis de Ambiente:
-   - No menu Iniciar, pesquise por Editar as variáveis de ambiente do sistema e abra.
-   - Clique no botão Variáveis de Ambiente....
-2. Crie as Variáveis de Sistema (na seção de baixo):
-   - Clique em "Novo..." para cada uma das seguintes variáveis:
-   - JAVA_HOME:
-     - Nome: JAVA_HOME
-     - Valor: C:\Program Files\Eclipse Adoptium\jdk-17.0.15.8-hotspot (Verifique o caminho exato na sua máquina, a versão pode variar um pouco).
-   - SPARK_HOME:
-     - Nome: SPARK_HOME
-     - Valor: C:\spark\spark-4.0.0-bin-hadoop3
-   - HADOOP_HOME:
-     - Nome: HADOOP_HOME
-     - Valor: C:\hadoop
-   - PYSPARK_PYTHON:
-     - Nome: PYSPARK_PYTHON
-     - Valor: python (Isso instrui o Spark a usar o Python que estiver ativo no terminal, respeitando seu ambiente virtual venv).
-3. Edite a Variável Path do Sistema:
-   - Na mesma seção de "Variáveis de sistema", encontre e selecione a variável Path e clique em Editar....
-   - Clique em Novo e adicione estas três entradas, uma de cada vez:
-     - %SPARK_HOME%\bin
-     - %HADOOP_HOME%\bin
-     - %JAVA_HOME%\bin
-   - Salve tudo clicando em OK em todas as janelas.
-
-### Passo 5: Permissões e Reinicialização
-
-1. Conceda Permissões (Modo Administrador):
-   - Abra o Prompt de Comando (cmd) como Administrador.
-   - Execute os seguintes comandos (se o seu Windows for em português, use Usuários; se for em inglês, use Users):
-     - icacls C:\hadoop /grant Usuários:F /T
-     - icacls C:\spark /grant Usuários:F /T
-2. REINICIE O COMPUTADOR: Este passo é crucial e força o Windows a carregar todas as novas configurações e permissões.
-
-### Passo 6: Verificação Final
-
-1. Após reiniciar, abra um novo terminal (PowerShell ou CMD)
-2. Navegue para a pasta do seu projeto (use um caminho sem espaços, ex: C:\projetos\meu_projeto).
-3. Ative seu ambiente virtual: .\venv\Scripts\Activate.ps1.
-4. Execute o spark-submit com seu script. Exemplo:
 ```
-spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0 seu_script_spark.py
+
+KAFKA_HOST = <endereço pro EC2 do kafka>
+REDIS_HOST =  <endereço pro EC2 do redis>
+DB_HOST = <endereço pro RDS>
+DB_USER = <user do RDS>
+DB_PASSWORD = <senha do RDS>
+
 ```
-5. Se tudo foi configurado corretamente, o Spark deverá iniciar sem erros. Parabéns, seu ambiente está pronto!
-
-## Configurando Delta Lake para pipeline de dados históricos
-
-1. Baixe a versão mais recente (42.7.7) do Driver JDBC do PostgreSQL: https://jdbc.postgresql.org/download/ 
-2. Coloque o arquivo em uma pasta fácil de achar (sugestão: `C:\spark\jdbc\postgresql-42.7.7.jar` no Windows)
-3. Adicione o caminho para o arquivo às suas variáveis de ambiente:
-```config
-JDBC_JAR_PATH="C:/spark/jdbc/postgresql-42.7.7.jar" # exemplo colocandona pasta sugerida
-```
-4. Rode comandos do spark com DeltaLake com a seguinte linha (até o momento o arquivo `run_pipeline_bronze_phase.py` é o mais atualizado no desenvolvimento do pipeline de métricas históricas):
-```bash
-spark-submit --packages io.delta:delta-spark_2.13:4.0.0 --jars C:\spark\jdbc\postgresql-42.7.7.jar --conf "spark.driver.log.level=ERROR" src\historical-pipeline\bronze_pipeline.py"
-```
-Essa linha roda os comandos Spark enquanto faz o download da versão compatível do DeltaLake com a versão do Spark utilizada no projeto.
-
-- Obs: No Windows é comum ocorrer o erro: `java.io.IOException: Failed to delete: C:\Users\daniel\AppData\Local\Temp\spark-34a12dad-52f8-4361-a1cc-d76f007d3191\userFiles-0df6c170-3d90-4c6c-8c8b-4660680ee9b3\postgresql-42.7.7.jar` após rodar esses e outros comandos Spark. Não se preocupe, isso não só é normal como não impacta no projeto e o Windows automaticamente deletará esses arquivos quando o computador for reiniciado.
 
 
-# Trabalho A2 de Computação Escalável 
-## Objetivo
-Criar um pipeline escalável para processamento de dados utilizando os mecanismos apresentados na disciplina.
 
+# Modelagem do trabalho
 ## Fontes de dados
 - transacoes_vendas -> tv
 	- id_transacao: UUID (identificador único da transação)
@@ -206,7 +91,6 @@ Criar um pipeline escalável para processamento de dados utilizando os mecanismo
 - Média de pedidos por cliente
   - tv e dc
 
-# Modelagem
 ## Simuladores
 Processos (ou máquinas) gerando dados com Faker e enviando para o Pub Sub
 
